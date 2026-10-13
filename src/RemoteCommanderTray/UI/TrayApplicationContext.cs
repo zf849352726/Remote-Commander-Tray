@@ -50,7 +50,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AppPaths paths,
         TraySettings settings,
         RollingFileLog log,
-        string version)
+        string version,
+        IExternalAgentDetector? externalAgentDetector = null)
     {
         _paths = paths;
         _log = log;
@@ -77,7 +78,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new AgentCommandResolver(),
             _settings,
             _log,
-            verboseLog: _verboseLog);
+            verboseLog: _verboseLog,
+            externalAgentDetector: externalAgentDetector ?? new WindowsExternalAgentDetector());
 
         _headerItem = new ToolStripMenuItem("Starting...") { Enabled = false };
         _detailItem = new ToolStripMenuItem("Last connected: never") { Enabled = false };

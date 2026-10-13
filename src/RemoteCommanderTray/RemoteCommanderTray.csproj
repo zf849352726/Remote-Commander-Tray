@@ -35,4 +35,8 @@
     <InternalsVisibleTo Include="RemoteCommanderTray.Windows.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
 </Project>

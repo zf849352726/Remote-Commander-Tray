@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Management" Version="8.0.0" />
     <ProjectReference Include="../../src/RemoteCommanderTray.Core/RemoteCommanderTray.Core.csproj" />
     <!-- Compile the production adapter, never a simplified copy. -->
     <Compile Include="../../src/RemoteCommanderTray/Windows/*.cs" Link="Windows/%(Filename)%(Extension)" />

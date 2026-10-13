@@ -19,7 +19,7 @@ public sealed class TrayTests
                 var settings = new TraySettings { StartAgentOnLaunch = false, NotificationsEnabled = false,
                     AgentExecutable = ProcessTests.Dotnet, AgentArguments = $"\"{ProcessTests.Probe}\" ready" };
                 using var log = new RollingFileLog(paths.AgentLogFile, 65536, 1);
-                using var tray = new TrayApplicationContext(paths, settings, log, "test");
+                using var tray = new TrayApplicationContext(paths, settings, log, "test", new NoConflictDetector());
                 var supervisor = Field<AgentSupervisor>(tray, "_supervisor");
                 var toggle = Field<ToolStripMenuItem>(tray, "_toggleAgentItem");
                 var restart = Field<ToolStripMenuItem>(tray, "_restartItem");
@@ -79,6 +79,11 @@ public sealed class TrayTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA); thread.Start();
         await done.Task.WaitAsync(TimeSpan.FromSeconds(20));
+    }
+
+    private sealed class NoConflictDetector : IExternalAgentDetector
+    {
+        public ExternalAgentCheck Check() => new(ExternalAgentPresence.None);
     }
 
     private static T Field<T>(object target, string name)

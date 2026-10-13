@@ -13,6 +13,7 @@ public sealed class AgentSupervisor : IAsyncDisposable
     private readonly AgentOutputParser _errorParser = new();
     private readonly IAgentProcessFactory _factory;
     private readonly AgentCommandResolver _resolver;
+    private readonly IExternalAgentDetector? _externalAgentDetector;
     private readonly Func<TraySettings> _settings;
     private readonly RollingFileLog _log;
     private readonly RollingFileLog? _verboseLog;
@@ -44,11 +45,12 @@ public sealed class AgentSupervisor : IAsyncDisposable
         AgentStateMachine machine, IAgentProcessFactory factory,
         AgentCommandResolver resolver, Func<TraySettings> settings, RollingFileLog log,
         Func<DateTimeOffset>? clock = null, RestartBackoff? backoff = null,
-        RollingFileLog? verboseLog = null)
+        RollingFileLog? verboseLog = null, IExternalAgentDetector? externalAgentDetector = null)
     {
         _machine = machine;
         _factory = factory;
         _resolver = resolver;
+        _externalAgentDetector = externalAgentDetector;
         _settings = settings;
         _log = log;
         _verboseLog = verboseLog;
@@ -200,6 +202,18 @@ public sealed class AgentSupervisor : IAsyncDisposable
         IAgentProcess? process = null;
         try
         {
+            // A running external Remote is not ours to stop or adopt. Unknown process
+            // visibility also blocks launch rather than silently creating duplicates.
+            var external = _externalAgentDetector?.Check() ?? new ExternalAgentCheck(ExternalAgentPresence.None);
+            if (external.Presence != ExternalAgentPresence.None)
+            {
+                _agentWanted = false;
+                _machine.SetAgentWanted(false);
+                ReportUnavailable(external.Presence == ExternalAgentPresence.Conflict
+                    ? "An existing external Desktop Commander Remote is running. Stop it manually before starting from this tray."
+                    : "Unable to inspect existing Remote processes. Check permissions and retry.");
+                return;
+            }
             var resolution = _resolver.Resolve(AgentCommand.Remote, _settings());
             if (resolution.Spec is null) { ReportUnavailable(resolution.Problem); return; }
             _launchDescription = resolution.Spec.Description;

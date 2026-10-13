@@ -1,6 +1,6 @@
 # Remote Commander Tray V2 — 项目总计划（PLAN.md）
 
-> 状态：已获执行授权，**M1 已通过验收，M2 待开始**。严格按 M1→M8 阶段门禁执行。
+> 状态：已获执行授权，**M1/M2 已通过验收，M3 待开始**。严格按 M1→M8 阶段门禁执行。
 >
 > 本地开发根目录：D:\DesktopCommanderRemote
 >
@@ -274,7 +274,7 @@ Git：docs: finalize release and acceptance
 | 开发方案审批 | 用户已授权执行 |
 | Fork 与 Git 初始化 | 已完成：Fork + develop 分支，保留上游历史 |
 | M1 | 已通过验收；见 docs/M1-local-baseline.md |
-| M2 | 未开始 |
+| M2 | 已通过验收；见 docs/M2-lifecycle-acceptance.md |
 | M3 | 未开始 |
 | M4 | 未开始 |
 | M5 | 未开始 |
@@ -293,3 +293,7 @@ Git：docs: finalize release and acceptance
 - C 盘空间不足；将项目依赖缓存移至 D 盘。该环境风险仍需处理。
 - 保留现有手动启动的 Remote 进程；后续冲突检测不得接管或终止现有连接。
 - M1 验收证据：docs/M1-local-baseline.md；下一阶段为 M2。
+
+- M2 进程生命周期与外部 Remote 冲突检测完成；新增只读 WMI 检测、不可检查时拒绝启动、测试依赖注入。
+- M2 Release 构建 0 警告 / 0 错误；178 项自动化测试和 10 项 Windows 原生集成检查全部通过；详见 docs/M2-lifecycle-acceptance.md。
+- 下一阶段为 M3 托盘交互与登录启动，M7 再做真实托盘的人工交互验收。
