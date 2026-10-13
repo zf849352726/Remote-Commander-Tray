@@ -1,6 +1,6 @@
 # Remote Commander Tray V2 — 项目总计划（PLAN.md）
 
-> 状态：已获执行授权，**M1/M2 已通过验收，M3 待开始**。严格按 M1→M8 阶段门禁执行。
+> 状态：已获执行授权，**M1–M3 已通过阶段验收，M4 待开始**。严格按 M1→M8 阶段门禁执行。
 >
 > 本地开发根目录：D:\DesktopCommanderRemote
 >
@@ -275,7 +275,7 @@ Git：docs: finalize release and acceptance
 | Fork 与 Git 初始化 | 已完成：Fork + develop 分支，保留上游历史 |
 | M1 | 已通过验收；见 docs/M1-local-baseline.md |
 | M2 | 已通过验收；见 docs/M2-lifecycle-acceptance.md |
-| M3 | 未开始 |
+| M3 | 阶段自动化验收通过；见 docs/M3-tray-acceptance.md（实机登录验收在 M7） |
 | M4 | 未开始 |
 | M5 | 未开始 |
 | M6 | 未开始 |
@@ -297,3 +297,8 @@ Git：docs: finalize release and acceptance
 - M2 进程生命周期与外部 Remote 冲突检测完成；新增只读 WMI 检测、不可检查时拒绝启动、测试依赖注入。
 - M2 Release 构建 0 警告 / 0 错误；178 项自动化测试和 10 项 Windows 原生集成检查全部通过；详见 docs/M2-lifecycle-acceptance.md。
 - 下一阶段为 M3 托盘交互与登录启动，M7 再做真实托盘的人工交互验收。
+
+- M3 托盘交互和独立登录自启已实现：单实例激活信号、隐藏/恢复、真正退出、Remote 独立自启配置和托盘 HKCU Run 注册逻辑。
+- M3 Release 构建 0 警告 / 0 错误；180 项自动化测试、10 项 Windows 原生集成检查全部通过。详见 docs/M3-tray-acceptance.md。
+- 未安装开发版 EXE 或向真实 HKCU Run 写入启动项，真实 Windows 登录及托盘端到端测试保留 M7。
+- 下一阶段 M4：连接状态、网络与授权恢复。

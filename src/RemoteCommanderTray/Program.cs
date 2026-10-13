@@ -17,6 +17,8 @@ internal static class Program
     private static readonly string MutexName =
         $"Local\\RemoteCommanderTray.SingleInstance.{Environment.UserName}";
 
+    private static readonly string ActivationEventName = MutexName + ".Activate";
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -26,11 +28,11 @@ internal static class Program
         using var mutex = new Mutex(initiallyOwned: true, MutexName, out var isFirstInstance);
         if (!isFirstInstance)
         {
-            // Silent when Windows started us at sign-in; a nudge when a human did.
-            if (!startedByWindows)
+            // Tell the existing instance to restore a hidden icon. Never create an agent.
+            if (!SingleInstanceActivation.TryActivate(ActivationEventName) && !startedByWindows)
             {
                 MessageBox.Show(
-                    "Remote Commander Tray is already running. Look for it in the notification area.",
+                    "Remote Commander Tray is already starting. Try opening it again shortly.",
                     "Remote Commander Tray",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -82,9 +84,18 @@ internal static class Program
             + $"({System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}, "
             + $"startedByWindows={startedByWindows}).");
 
-        // Keeps a registered startup entry pointing at wherever the app lives now,
-        // without disturbing a disable the user applied in Windows.
-        StartupRegistration.RefreshIfRegistered();
+        // The tray itself always registers at user sign-in. Windows may separately
+        // disable the entry; never overwrite that approval decision.
+        var startup = StartupRegistration.GetState();
+        if (startup == StartupState.NotRegistered)
+        {
+            if (!StartupRegistration.TrySet(true, out var startupError))
+                log.Write(LogSource.Tray, $"Tray login registration failed ({startupError}).");
+        }
+        else if (startup == StartupState.Enabled)
+        {
+            StartupRegistration.RefreshIfRegistered();
+        }
 
         Application.ThreadException += (_, e) =>
             log.Write(LogSource.Tray, $"Unhandled UI exception: {e.Exception}");
@@ -94,7 +105,9 @@ internal static class Program
 
         try
         {
+            using var activator = new SingleInstanceActivation(ActivationEventName);
             using var context = new TrayApplicationContext(paths, settings, log, version);
+            activator.Listen(context.ShowTray);
             Application.Run(context);
         }
         catch (Exception ex)

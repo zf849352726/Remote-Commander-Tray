@@ -38,7 +38,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _restartItem;
     private readonly ToolStripMenuItem _reauthenticateItem;
     private readonly ToolStripMenuItem _toggleAgentItem;
-    private readonly ToolStripMenuItem _launchAtSignInItem;
+    private readonly ToolStripMenuItem _remoteAtSignInItem;
+    private readonly ToolStripMenuItem _trayStartupItem;
+    private readonly ToolStripMenuItem _hideTrayItem;
+    private readonly SettingsStore _settingsStore;
 
     private AgentSnapshot _snapshot = AgentSnapshot.Initial;
     private bool _busy;
@@ -57,6 +60,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _log = log;
         _version = version;
         _settings = () => settings;
+        _settingsStore = new SettingsStore(paths.SettingsFile);
 
         // A real control gives a dependable BeginInvoke target for supervisor callbacks,
         // which arrive on thread-pool threads.
@@ -95,10 +99,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _restartItem = new ToolStripMenuItem("Restart connection", null, (_, _) => Run(_supervisor.RestartAsync));
         _reauthenticateItem = new ToolStripMenuItem("Re-authenticate...", null, (_, _) => Reauthenticate());
         _toggleAgentItem = new ToolStripMenuItem("Stop agent", null, (_, _) => ToggleAgent());
-        _launchAtSignInItem = new ToolStripMenuItem("Launch at sign-in", null, (_, _) => ToggleLaunchAtSignIn())
+        _remoteAtSignInItem = new ToolStripMenuItem(
+            "Start Remote at sign-in", null, (_, _) => ToggleRemoteAtSignIn())
         {
             CheckOnClick = false,
         };
+        _trayStartupItem = new ToolStripMenuItem(
+            "Tray startup status", null, (_, _) => OpenStartupSettings());
+        _hideTrayItem = new ToolStripMenuItem("Hide tray", null, (_, _) => HideTray());
 
         _menu = new ContextMenuStrip();
         _menu.Items.AddRange(
@@ -117,9 +125,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripMenuItem("Open logs", null, (_, _) => OpenLogs()),
             new ToolStripMenuItem("Copy diagnostics", null, (_, _) => CopyDiagnostics()),
             new ToolStripSeparator(),
-            _launchAtSignInItem,
+            _remoteAtSignInItem,
+            _trayStartupItem,
+            _hideTrayItem,
             new ToolStripMenuItem("About", null, (_, _) => ShowAbout()),
-            new ToolStripMenuItem("Exit", null, (_, _) => ExitApplication()),
+            new ToolStripMenuItem("Exit Application", null, (_, _) => ExitApplication()),
         ]);
         _menu.Opening += (_, _) => { RefreshMenu(); _menuTimer.Start(); };
         _menu.Closed += (_, _) => _menuTimer.Stop();
@@ -182,19 +192,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
         RefreshStartupItem();
     }
 
-    /// <summary>
-    /// Shows the observed registration and Windows approval state. A Run entry that Windows has
-    /// switched off is not "on", and re-ticking it here would not turn it back on.
-    /// </summary>
+    /// <summary>Remote autostart and tray registration are separate controls.</summary>
     private void RefreshStartupItem()
     {
+        _remoteAtSignInItem.Checked = _settings().StartAgentOnLaunch;
         var state = StartupRegistration.GetState();
-        _launchAtSignInItem.Checked = state == StartupState.Enabled;
-        _launchAtSignInItem.Text = state switch
+        _trayStartupItem.Text = state switch
         {
-            StartupState.DisabledByWindows => "Launch at sign-in (turned off in Windows)",
-            StartupState.Unknown => "Launch at sign-in (check Windows settings)",
-            _ => "Launch at sign-in",
+            StartupState.Enabled => "Tray login startup: enabled (Windows settings)",
+            StartupState.DisabledByWindows => "Tray login startup: disabled by Windows",
+            StartupState.NotRegistered => "Tray login startup: not registered",
+            _ => "Tray login startup: unknown",
         };
     }
 
@@ -312,44 +320,44 @@ internal sealed class TrayApplicationContext : ApplicationContext
         CopyToClipboard(report, "Diagnostics copied to the clipboard.");
     }
 
-    private void ToggleLaunchAtSignIn()
+    private void ToggleRemoteAtSignIn()
     {
-        var state = StartupRegistration.GetState();
-        if (state is StartupState.DisabledByWindows or StartupState.Unknown)
+        var settings = _settings();
+        var previous = settings.StartAgentOnLaunch;
+        settings.StartAgentOnLaunch = !previous;
+        if (_settingsStore.TrySave(settings, out var error))
         {
-            // Windows owns this decision; writing the Run value again would not clear it.
-            var open = MessageBox.Show(
-                "Windows startup is disabled or its state could not be verified.\n\n"
-                + "Check or re-enable it in Windows Startup Apps settings now?",
-                "Launch at sign-in",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Information);
-
-            if (open == DialogResult.OK)
-            {
-                OpenStartupSettings();
-            }
-
-            return;
-        }
-
-        var target = state == StartupState.NotRegistered;
-        if (StartupRegistration.TrySet(target, out var error))
-        {
+            _log.Write(LogSource.Tray,
+                $"Remote autostart updated: {settings.StartAgentOnLaunch}.");
             RefreshStartupItem();
-            if (target && StartupRegistration.GetState() is StartupState.DisabledByWindows or StartupState.Unknown)
-                OpenStartupSettings();
-            _log.Write(LogSource.Tray, $"Startup registration updated; observed state: {StartupRegistration.GetState()}.");
             return;
         }
 
-        _log.Write(LogSource.Tray, $"Could not change launch at sign-in: {error}");
+        settings.StartAgentOnLaunch = previous;
+        RefreshStartupItem();
+        _log.Write(LogSource.Tray, "Unable to save Remote autostart preference.");
         MessageBox.Show(
-            $"Could not change the startup setting:\n{error}",
+            $"Could not save Remote autostart preference:\n{error}",
             "Remote Commander Tray",
             MessageBoxButtons.OK,
             MessageBoxIcon.Warning);
     }
+
+    /// <summary>Hides the icon without disposing the manager or touching the Remote.</summary>
+    private void HideTray()
+    {
+        if (_exiting) return;
+        _menu.Close();
+        _notifyIcon.Visible = false;
+    }
+
+    /// <summary>Called from per-session activation IPC or a local UI event.</summary>
+    public void ShowTray() => OnUiThread(() =>
+    {
+        if (_exiting) return;
+        _notifyIcon.Visible = true;
+        RefreshMenu();
+    });
 
     private static void OpenStartupSettings()
     {

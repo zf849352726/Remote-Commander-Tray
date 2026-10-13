@@ -25,6 +25,21 @@ public sealed class TrayTests
                 var restart = Field<ToolStripMenuItem>(tray, "_restartItem");
                 var icon = Field<NotifyIcon>(tray, "_notifyIcon");
                 Assert.True(icon.Visible); Assert.Equal("Start agent", toggle.Text);
+                var hide = Field<ToolStripMenuItem>(tray, "_hideTrayItem");
+                hide.PerformClick();
+                Assert.False(icon.Visible);
+                Assert.False(supervisor.IsRunning);
+                tray.ShowTray();
+                Pump(() => icon.Visible);
+                Assert.False(supervisor.IsRunning);
+
+                var remoteAtSignIn = Field<ToolStripMenuItem>(tray, "_remoteAtSignInItem");
+                Assert.False(remoteAtSignIn.Checked);
+                remoteAtSignIn.PerformClick();
+                Assert.True(remoteAtSignIn.Checked);
+                Assert.True(new SettingsStore(paths.SettingsFile).Load().StartAgentOnLaunch);
+                Assert.False(supervisor.IsRunning); // Changing the next-login setting never starts Remote now.
+
                 toggle.PerformClick(); Pump(() => supervisor.Snapshot.State == AgentState.Online && toggle.Enabled);
                 Pump(() => icon.Text.Contains("Online", StringComparison.Ordinal));
                 Assert.Equal("Stop agent", toggle.Text);

@@ -13,7 +13,7 @@ namespace RemoteCommanderTray.Core;
 /// </remarks>
 public sealed class TraySettings
 {
-    /// <summary>Start the agent as soon as the tray starts.</summary>
+    /// <summary>Whether Remote starts when the tray first launches; independent of tray login registration.</summary>
     [JsonPropertyName("startAgentOnLaunch")]
     public bool StartAgentOnLaunch { get; set; } = true;
 
