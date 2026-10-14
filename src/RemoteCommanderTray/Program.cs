@@ -15,7 +15,7 @@ internal static class Program
     /// does not.
     /// </summary>
     private static readonly string MutexName =
-        $"Local\\RemoteCommanderTray.SingleInstance.{Environment.UserName}";
+        $"Local\\RemoteCommanderTray.SingleInstance.{System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName}";
 
     private static readonly string ActivationEventName = MutexName + ".Activate";
 

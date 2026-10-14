@@ -4,7 +4,7 @@
 param(
     [ValidateSet('Install','Uninstall','Rollback','Check')]
     [string]$Action = 'Install',
-    [string]$InstallDir = 'D:\Apps\RemoteCommanderTray',
+    [string]$InstallDir = (Join-Path 'D:\Apps\RemoteCommanderTray' ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)),
     [string]$DataDir = (Join-Path 'D:\Apps\RemoteCommanderTrayData' ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)),
     [string]$SourceDir,
     [switch]$TestMode,
@@ -42,7 +42,7 @@ if ($TestMode -and ($InstallDir -notmatch '(?i)\\verification\\' -or
     throw 'TestMode requires isolated directories under verification; real user data is forbidden.'
 }
 if (!$TestMode) {
-    $expectedInstallDir = [IO.Path]::GetFullPath('D:\Apps\RemoteCommanderTray').TrimEnd('\')
+    $expectedInstallDir = [IO.Path]::GetFullPath((Join-Path 'D:\Apps\RemoteCommanderTray' ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value))).TrimEnd('\')
     $expectedDataDir = [IO.Path]::GetFullPath(
         (Join-Path 'D:\Apps\RemoteCommanderTrayData' ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value))).TrimEnd('\')
     if ($InstallDir -ine $expectedInstallDir -or $DataDir -ine $expectedDataDir) {
@@ -55,15 +55,60 @@ $rollbackDir = Join-Path $InstallDir 'rollback'
 $rollbackExe = Join-Path $rollbackDir $exeName
 $rollbackInfo = Join-Path $rollbackDir 'backup.json'
 
-function Ensure-PrivateDataDirectory {
-    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    if (!(Test-Path -LiteralPath $DataDir)) {
-        New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
+function Assert-CurrentSidDirectory {
+    param([string]$DirectoryPath, [string]$ExpectedParent)
+    $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $parent = [IO.Path]::GetFullPath($ExpectedParent).TrimEnd('\')
+    $expected = Join-Path $parent $currentSid
+    # Reject precreated directories / junctions and any path outside current SID.
+    if ([IO.Path]::GetFullPath($DirectoryPath).TrimEnd('\') -ine $expected) {
+        throw 'Directory must be under the current Windows SID.'
     }
-    # D: may inherit Authenticated Users:F. Make the per-account data tree private.
-    # This only changes the current user's dedicated data folder, never D:\Apps itself.
-    & icacls.exe $DataDir /inheritance:r /grant:r ("*" + $sid + ":(OI)(CI)F") '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' *> $null
-    if ($LASTEXITCODE -ne 0) { throw 'Could not restrict the D: data folder ACL; installation stopped.' }
+    if (!(Test-Path -LiteralPath $parent -PathType Container)) {
+        throw "Parent directory has not been provisioned: $parent"
+    }
+    if (((Get-Item -LiteralPath $parent -Force).Attributes -band
+        [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'Refusing a linked parent directory.'
+    }
+    if (Test-Path -LiteralPath $DirectoryPath) {
+        $entry = Get-Item -LiteralPath $DirectoryPath -Force
+        if (!$entry.PSIsContainer -or
+            (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+            throw 'Refusing pre-existing file or linked SID directory.'
+        }
+        $owner = (Get-Acl -LiteralPath $DirectoryPath).GetOwner(
+            [Security.Principal.SecurityIdentifier]).Value
+        if ($owner -cne $currentSid) {
+            throw 'Current SID directory has a different owner; refusing to modify.'
+        }
+    }
+}
+
+function Ensure-PrivateDirectory {
+    param([string]$DirectoryPath)
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    if (!(Test-Path -LiteralPath $DirectoryPath)) {
+        New-Item -ItemType Directory -Path $DirectoryPath -Force | Out-Null
+    }
+    & icacls.exe $DirectoryPath /inheritance:r /grant:r ("*" + $sid + ":(OI)(CI)F") '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Could not restrict this Windows account folder ACL.'
+    }
+}
+
+function Ensure-PrivateInstallDirectory {
+    if (!$TestMode) {
+        Assert-CurrentSidDirectory $InstallDir 'D:\Apps\RemoteCommanderTray'
+    }
+    Ensure-PrivateDirectory $InstallDir
+}
+
+function Ensure-PrivateDataDirectory {
+    if (!$TestMode) {
+        Assert-CurrentSidDirectory $DataDir 'D:\Apps\RemoteCommanderTrayData'
+    }
+    Ensure-PrivateDirectory $DataDir
     if (!(Test-Path -LiteralPath (Join-Path $DataDir 'settings.json'))) {
         # Conservative first-install preference: tray starts at login; Remote remains
         # manually stopped until the user explicitly enables Remote auto-start.
@@ -202,7 +247,7 @@ switch ($Action) {
             throw "Package digest or pinned dependency mismatch. Installation aborted."
         }
 
-        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+        Ensure-PrivateInstallDirectory
         # Keep the per-user settings/logs on D: with an explicit private ACL.
         Ensure-PrivateDataDirectory
         $newExe = Join-Path $InstallDir ($exeName + '.new')

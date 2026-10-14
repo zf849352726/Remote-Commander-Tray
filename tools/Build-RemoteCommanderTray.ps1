@@ -8,7 +8,7 @@ $tools = Join-Path $Root 'tools'
 $base = Join-Path $Root 'verification\m6-dist'
 $stage = Join-Path $base 'staging'
 $publish = Join-Path $base 'publish'
-$installer = Join-Path $base 'RemoteCommanderTray-Setup-0.2.0-preview.1-win-x64.exe'
+$installer = Join-Path $base 'RemoteCommanderTray-Setup-0.2.0-preview.3-win-x64.exe'
 $sed = Join-Path $base 'package.sed'
 
 if (!(Test-Path "$env:WINDIR\System32\iexpress.exe")) { throw 'Windows IExpress is not available.' }
@@ -23,7 +23,7 @@ $env:NUGET_HTTP_CACHE_PATH = Join-Path $Root 'verification\nuget-http'
 $env:TEMP = 'D:\temp'
 $env:TMP = 'D:\temp'
 
-& dotnet publish (Join-Path $Root 'src\RemoteCommanderTray\RemoteCommanderTray.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:Version=0.2.0-preview.1 -o $publish --verbosity minimal
+& dotnet publish (Join-Path $Root 'src\RemoteCommanderTray\RemoteCommanderTray.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:Version=0.2.0-preview.3 -o $publish --verbosity minimal
 if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
 
 $exe = Join-Path $publish 'RemoteCommanderTray.exe'
@@ -32,7 +32,7 @@ Copy-Item -LiteralPath $exe -Destination (Join-Path $stage 'RemoteCommanderTray.
 Copy-Item -LiteralPath (Join-Path $tools 'Manage-RemoteCommanderTray.ps1') -Destination (Join-Path $stage 'Manage-RemoteCommanderTray.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $tools 'install.cmd') -Destination (Join-Path $stage 'install.cmd') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'LICENSE') -Destination (Join-Path $stage 'LICENSE') -Force
-$version = '0.2.0-preview.1'
+$version = '0.2.0-preview.3'
 $commit = (& git -C $Root rev-parse HEAD).Trim()
 $manifest = [ordered]@{
     appVersion = $version

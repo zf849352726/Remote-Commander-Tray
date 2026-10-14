@@ -342,3 +342,13 @@ Git：docs: finalize release and acceptance
 - 真实 ACL 审计由 FAIL 转为 PASS，程序 EXE SHA256 与 Remote 进程 PID 均未变化，私人日志目录写读、安装管理器 Check 及隔离生命周期回归均通过。
 - 本地 ACL 备份：verification/m6-acl-backups/D-Apps-20261014T081150623Z.acl。若要恢复先前不安全的权限，前提是 D: 父权限未变，才能对 D:\Apps 执行 icacls /reset。
 - 当前固定共享安装位置仅当前账户可写，因此其他标准用户自助安装尚需修改布局并验收；托盘托管 Remote 的 MCP 实机验收亦未完成。M6 仍在进行中，不进入 M7。
+
+### 2026-10-14 — M6 按账户独立的 D 盘安装布局（进行中）
+
+- 新版程序默认安装到 `D:\Apps\RemoteCommanderTray\<Windows SID>\RemoteCommanderTray.exe`；配置和日志继续使用 `D:\Apps\RemoteCommanderTrayData\<Windows SID>`。旧共享版 `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe` 保留，当前登录启动项暂不自动迁移，避免影响当前 Remote。
+- 两个父目录只向 Authenticated Users 授予 **CreateDirectories（This folder only、非继承）**，不授予修改旧 EXE、其他用户目录或删除目录的权限。生产 D:\Apps 权限审计 PASS，旧 EXE SHA256 与现有 Remote PID 未变化。
+- 新安装脚本对当前 SID 路径、重解析点、已有目录所有者做校验；安装完成后对当前 SID 的程序与数据目录配置私有 ACL。托盘单实例命名由用户名改为 Windows SID，避免域账户重名冲突。
+- 新增 `tools/Provision-M6UserRoots.ps1`、`tools/Test-M6PerUserInstall.ps1`；后者在隔离目录真实运行 PASS（安装、SHA256、权限、升级备份、回滚、保留配置卸载、HKCU 不变、现有 Remote PID 不变）。
+- 全量回归：Release 构建 0 warning / 0 error，Core 177/177、Windows 25/25、Windows 原生集成 10/10 通过。
+- 已构建候选 `0.2.0-preview.3` 自包含 win-x64 安装 EXE，并验证实际解包、MIT LICENSE、按 SID 的安装脚本和 EXE SHA256。安装包本地路径 `verification\m6-dist\RemoteCommanderTray-Setup-0.2.0-preview.3-win-x64.exe`，SHA256 `75029107A60E8D74F93583DCC4883AC933B016B833D23AC76D73943EDECD4886`。
+- **剩余门禁：独立非管理员 Windows 用户执行真正安装/卸载、旧共享版向 SID 版的受控迁移、托盘托管 Remote 模式实际 MCP 工具调用。** 管理员沙箱测试不能替代标准用户实测；当前外部 Remote 不切换。M6 继续进行中，M7 不启动。

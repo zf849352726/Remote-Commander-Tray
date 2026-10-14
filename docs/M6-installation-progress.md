@@ -102,3 +102,28 @@
 - 当前用户 SID 私有数据目录 ACL 保持，实际日志目录写/读通过。安装管理器 Check 正常，重新执行 M6 隔离生命周期测试（初装、升级、回滚、篡改保护、保留/删除配置、HKCU Run 不变）全部通过。
 - 真实 ACL 备份位于 `verification/m6-acl-backups/D-Apps-20261014T081150623Z.acl`（本机不纳入 Git）。**仅当确需恢复且 D:\ 父 ACL 仍未变化时**，管理员可执行 `icacls.exe "D:\Apps" /reset` 恢复原继承机制；此操作会重新引入不安全的广泛写权限，不能作为正常运行方式。
 - **安全门禁整改通过，但 M6 继续进行中。** 当前安装目录采用一个固定共享路径，只授予此用户 SID 写权限，因此其他标准用户不能自行维护共享程序；需要后续设计并验证每用户安装布局，不能虚报非管理员自助安装 PASS。托盘托管 Remote 模式的 MCP 实机验证也仍待隔离环境完成。
+
+## 2026-10-14 — 多用户 SID 安装布局的安全改造（M6 继续进行中）
+
+- 旧版正式安装 `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe` 已保留，不自动迁移、不结束当前 npx Remote，也不更改官方授权。新版安装脚本的默认目标改为 `D:\Apps\RemoteCommanderTray\<当前 Windows SID>\RemoteCommanderTray.exe`，设置与日志仍在 `D:\Apps\RemoteCommanderTrayData\<当前 Windows SID>`。
+- 新增 `tools/Provision-M6UserRoots.ps1`，对上述两个父目录只授予 `Authenticated Users` **CreateDirectories（此目录，不继承）**。不授予修改父目录文件、删除兄弟账户目录、向子目录继承写权限的能力；D:\Apps 本身仍为原安全 ACL。
+- 安装脚本检查 SID 子目录路径、是否为 reparse point、现有目录的所有者是否为当前 Windows SID；拒绝访问被其他所有者预占的同名目录。私有安装目录和数据目录仅允许本人、SYSTEM、管理员组完全控制。
+- 更新 `tools/Audit-M6InstallPermissions.ps1`，只对两个指定父目录精确允许非继承的 CreateDirectories ACE；其他广泛写/删除权限仍视为安全失败。
+- 沙箱测试先执行 ACL 加固，再授予最小创建权限，复审 PASS。生产 `D:\Apps\RemoteCommanderTray`、`D:\Apps\RemoteCommanderTrayData` 也已经只赋予非继承 CreateDirectories，实际权限审计 PASS。旧安装 EXE SHA256 与远程进程 PID 集合均保持不变。
+- `tools/Test-M6PerUserInstall.ps1` 已在隔离 D 盘环境通过：按当前 SID 创建独立安装和数据目录、检查所有者与私有 ACL、安装 SHA256、重复安装备份、回滚、保留数据卸载、HKCU 不变、已有 Remote PID 不变。
+- 托盘程序单实例命名由用户名调整为当前 Windows SID，避免不同 Windows 域中用户名相同导致的命名冲突。
+- Release 构建 0 warnings / 0 errors；Core 177/177、Windows 25/25、Windows 原生集成 10/10 均通过。新安装包使用 `0.2.0-preview.3` 版本标识，避免与旧文件同名混淆。
+- **实际非管理员 Windows 用户安装及不同用户之间的隔离仍待独立普通账户验收**。当前测试在管理员账户运行，不能冒充标准用户。既有旧路径向 SID 新路径的迁移尚未执行；其 HKCU Run、开始菜单/桌面快捷方式迁移需另行验证。
+- **托盘真正托管 Remote 模式的 MCP 验收仍未执行**，必须在不影响现有远程连接的独立设备或会话完成。M6 保持进行中；M7 未开始。
+
+## M6 SID 安装候选包与回归测试补充
+
+- 正式默认路径：`D:\Apps\RemoteCommanderTray\<Windows SID>`；用户数据路径：`D:\Apps\RemoteCommanderTrayData\<Windows SID>`。
+- Windows 实际目录 `D:\Apps\RemoteCommanderTray` 与 `D:\Apps\RemoteCommanderTrayData` 已应用**非继承** CreateDirectories 最小权限。只读安全审计返回 PASS，旧共享程序 EXE 与 Remote PID 集合未改变。
+- 隔离 `Test-M6PerUserInstall.ps1` 测试结果：`M6_SID_ISOLATION_TEST=PASS`。已经覆盖按当前 Windows SID 安装程序、独立私有 ACL、发行哈希、重复安装、回滚、卸载保留数据及 HKCU 与 Remote 不变。
+- Release 构建成功（0 警告/错误），Core 177/177，Windows 25/25，Native 10/10 全部通过。
+- 新候选 `verification\m6-dist\RemoteCommanderTray-Setup-0.2.0-preview.3-win-x64.exe` 已经实际自解压并验证包含新版按 SID 安装脚本、LICENSE 和发行清单。
+- 安装包 SHA256：`75029107A60E8D74F93583DCC4883AC933B016B833D23AC76D73943EDECD4886`；内部 EXE SHA256：`7FE50B7E2538FDF05F5A7F6AC11B3EBC6848F007A616B7FE598D9F993BCBEB98`。
+- 旧版已安装 EXE 及当前用户的 Windows 启动注册仍保留在共享旧位置；**没有直接迁移**到新的 SID 目录，也没有自动运行第二个 Remote。
+- 遗留风险：父目录允许其他标准用户创建任意子文件夹，可能出现 SID 目录名被抢占的拒绝服务；安装器通过目录所有者检查拒绝使用预先抢占的 SID 目录，但尚未进行真实跨用户测试。
+- M6 **尚未完整通过**：真正标准用户账户自助安装（当前仅在管理员账户执行隔离测试）、遗留安装的受控迁移，以及托盘托管 Remote 模式真实 MCP 工具调用均待独立环境验收。

@@ -8,7 +8,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Build-RemoteCommande
 
 Requires .NET SDK 8 and the Windows built-in IExpress utility.
 
-Default formal installation is D:\Apps\RemoteCommanderTray. Settings and logs are under D:\Apps\RemoteCommanderTrayData\<Windows-SID> for per-account separation. The source repository stays in D:\DesktopCommanderRemote. Old C: application data is never deleted or silently migrated.
+New per-user default installation is D:\Apps\RemoteCommanderTray\<Windows-SID>. Settings and logs remain at D:\Apps\RemoteCommanderTrayData\<Windows-SID>. The previous shared binary at D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe is preserved as a legacy installation; there is no automatic migration. The source repository stays in D:\DesktopCommanderRemote. Old C: application data is never deleted or silently migrated.
 
 Output is under `verification\m6-dist` (excluded from Git). No changes are made to Windows login startup or Desktop Commander credentials when building.
 
@@ -32,7 +32,7 @@ Upgrade/rollback: fully exit **the tray** first; never kill an unrelated Remote.
 
 For unattended **keep-settings** removal on the designated D-drive install, use the installed manager with `-Action Uninstall -KeepUserData` after exiting the tray. This is an explicit keep-data option; default GUI uninstall still asks whether to retain data. It never removes official Desktop Commander credentials. Do not run a second Remote while the existing npx Remote is connected.
 
-M6 remains open: verify with a separate non-administrator Windows account, test rollback between distinct application builds, and verify MCP operations from tray-managed Remote mode in an independent session before marking M6 PASS.
+M6 remains open: distinct-binary rollback already passed in an isolated real filesystem. Still required: installation by an actual non-administrator Windows account and MCP tools through tray-managed Remote mode in an independent session.
 
 ## Distinct EXE rollback and installer directory permissions
 
@@ -69,4 +69,41 @@ The tool first refuses unrelated D:\Apps contents, saves the subtree ACL snapsho
 
 On this particular Windows host, native icacls /restore failed with error 1300. The sandbox-tested rollback is ONLY: icacls.exe "D:\Apps" /reset, and only if the original D:\Apps ACL was inherited-only and the D:\ parent ACL is unchanged. Rollback intentionally restores the former INSECURE Authenticated Users:FullControl inheritance. Do not run casually.
 
-The current application installation is shared at D:\Apps\RemoteCommanderTray, writable only by the installing Windows SID. Other non-admin users cannot independently install to this shared location; per-user installation layout remains an unresolved M6 design/acceptance requirement. M6 is not fully accepted until this and tray-managed Remote MCP mode are tested safely.
+The new installer targets D:\Apps\RemoteCommanderTray\<Windows SID>. Minimal non-inheriting CreateDirectories grants have been provisioned on only the two application roots; each newly created SID directory has private ACLs. Actual non-administrator execution is still awaiting independent Windows account testing. The older shared EXE remains in place. M6 is not fully accepted until this and tray-managed Remote MCP mode are tested safely.
+
+## SID-scoped per-user D-drive installation (preview.3)
+
+For a newly signed-in Windows account, the installer target is:
+`D:\Apps\RemoteCommanderTray\<Windows SID>\RemoteCommanderTray.exe`.
+The per-account settings and log root remains
+`D:\Apps\RemoteCommanderTrayData\<Windows SID>`.
+
+Initial provisioning of the two **application parent directories** requires an
+authorized administrator (done on this machine):
+
+```powershell
+.\tools\Provision-M6UserRoots.ps1
+.\tools\Provision-M6UserRoots.ps1 -Apply
+.\tools\Audit-M6InstallPermissions.ps1
+```
+
+The sole additional permission for Authenticated Users is **CreateDirectories on
+each parent folder itself**; it is not inherited into a SID directory. The
+installer creates only its current SID directory, verifies ownership and rejects
+junctions or symlinks; installed program/data folders have private ACLs.
+
+To verify the layout without HKCU changes or touching the existing Remote:
+
+```powershell
+.\tools\Test-M6PerUserInstall.ps1
+```
+
+The existing legacy shared EXE at `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe`
+is intentionally preserved. **Do not run the new installer over the existing
+legacy registration**: migration of the old HKCU Run entry and shortcuts is
+not yet accepted. Close the tray before any install/update. No live Remote
+connection is stopped or taken over by these scripts.
+
+The build artifact currently uses version `0.2.0-preview.3`. Tests performed
+as an administrator or against mock directories are NOT evidence of
+non-administrator self-install on a separate Windows account.
