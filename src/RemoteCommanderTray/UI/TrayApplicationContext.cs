@@ -17,6 +17,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private const int TooltipMaxLength = 63;
     private readonly System.Windows.Forms.Timer _menuTimer = new() { Interval = 1000 };
+    private readonly System.Windows.Forms.Timer _logMaintenanceTimer = new()
+        { Interval = 15 * 60 * 1000 };
 
     private readonly AppPaths _paths;
     private readonly RollingFileLog _log;
@@ -42,6 +44,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _remoteAtSignInItem;
     private readonly ToolStripMenuItem _trayStartupItem;
     private readonly ToolStripMenuItem _hideTrayItem;
+    private readonly ToolStripMenuItem _verboseLogInfoItem;
     private readonly SettingsStore _settingsStore;
 
     private AgentSnapshot _snapshot = AgentSnapshot.Initial;
@@ -73,8 +76,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // Raw agent output can contain whatever a remote tool call read, so it only gets
         // written when the user opts in, and is never copied into diagnostics.
         _verboseLog = settings.VerboseAgentLog
-            ? new RollingFileLog(paths.VerboseAgentLogFile, settings.LogMaxBytes, settings.LogRetainedFiles)
+            ? new RollingFileLog(paths.VerboseAgentLogFile, settings.VerboseLogMaxBytes, settings.VerboseLogRetainedFiles)
             : null;
+
+        _log.Maintain();
+        _logMaintenanceTimer.Tick += (_, _) =>
+        {
+            _log.Maintain();
+            _verboseLog?.Maintain();
+        };
+        _logMaintenanceTimer.Start();
 
         var machine = new AgentStateMachine();
         _supervisor = new AgentSupervisor(
@@ -109,6 +120,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _trayStartupItem = new ToolStripMenuItem(
             "Tray startup status", null, (_, _) => OpenStartupSettings());
         _hideTrayItem = new ToolStripMenuItem("Hide tray", null, (_, _) => HideTray());
+        _verboseLogInfoItem = new ToolStripMenuItem(
+            "Verbose logging ON: sensitive data may be saved")
+        { Enabled = false, Visible = settings.VerboseAgentLog };
 
         _menu = new ContextMenuStrip();
         _menu.Items.AddRange(
@@ -127,6 +141,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripMenuItem("Open Remote MCP", null, (_, _) => Shell.OpenUrl(_settings().RemoteMcpUrl)),
             new ToolStripMenuItem("Open logs", null, (_, _) => OpenLogs()),
             new ToolStripMenuItem("Copy diagnostics", null, (_, _) => CopyDiagnostics()),
+            _verboseLogInfoItem,
             new ToolStripSeparator(),
             _remoteAtSignInItem,
             _trayStartupItem,
@@ -163,6 +178,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
 
         ApplySnapshot(_supervisor.Snapshot);
+        if (settings.VerboseAgentLog)
+        {
+            _notifyIcon.ShowBalloonTip(
+                8_000, "Remote Commander - verbose log enabled",
+                "Verbose logs may contain tool arguments, file data or sign-in information. Turn off verboseAgentLog in settings.json when not needed.",
+                ToolTipIcon.Warning);
+        }
         Run(_supervisor.InitializeAsync);
     }
 
@@ -431,7 +453,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             _supervisorDisposeFailureReported = true;
-            _log.Write(LogSource.Tray, $"Error during shutdown: {ex.Message}");
+            _log.Write(LogSource.Tray, $"Error during shutdown ({ex.GetType().Name}).");
         }
 
         _log.Write(LogSource.Tray, "Tray exited.");
@@ -523,7 +545,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or ThreadStateException)
         {
-            _log.Write(LogSource.Tray, $"Clipboard unavailable: {ex.Message}");
+            _log.Write(LogSource.Tray, $"Clipboard unavailable ({ex.GetType().Name}).");
             MessageBox.Show(
                 "Windows would not let the clipboard be written just now. Try again.",
                 "Remote Commander Tray",
@@ -565,6 +587,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
+            _logMaintenanceTimer.Stop();
+            _logMaintenanceTimer.Dispose();
             _menuTimer.Dispose();
             try
             {
@@ -578,7 +602,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 if (!_supervisorDisposeFailureReported)
                 {
                     _supervisorDisposeFailureReported = true;
-                    _log.Write(LogSource.Tray, $"Error during shutdown disposal: {ex.Message}");
+                    _log.Write(LogSource.Tray, $"Error during shutdown disposal ({ex.GetType().Name}).");
                 }
             }
 

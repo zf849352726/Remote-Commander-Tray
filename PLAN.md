@@ -1,6 +1,6 @@
 # Remote Commander Tray V2 — 项目总计划（PLAN.md）
 
-> 状态：已获执行授权，**M1–M4 已通过阶段验收，M5 待开始**。严格按 M1→M8 阶段门禁执行。
+> 状态：已获执行授权，**M1–M5 已通过阶段验收，M6 待开始**。严格按 M1→M8 阶段门禁执行。
 >
 > 本地开发根目录：D:\DesktopCommanderRemote
 >
@@ -277,7 +277,7 @@ Git：docs: finalize release and acceptance
 | M2 | 已通过验收；见 docs/M2-lifecycle-acceptance.md |
 | M3 | 阶段自动化验收通过；见 docs/M3-tray-acceptance.md（实机登录验收在 M7） |
 | M4 | 阶段自动化验收通过；见 docs/M4-connection-acceptance.md（睡眠/解锁实机验收在 M7） |
-| M5 | 未开始 |
+| M5 | 阶段自动化验收通过；见 docs/M5-logging-acceptance.md |
 | M6 | 未开始 |
 | M7 | 未开始 |
 | M8 | 未开始 |
@@ -306,3 +306,7 @@ Git：docs: finalize release and acceptance
 - M4 完成连接状态与电源会话恢复逻辑：进程/连接状态分离、唤醒或解锁时将旧 Online 状态置 Unknown，收到新 CLI 信号后再确认在线；不重启正常运行中的 Remote。
 - M4 Release 构建 0 警告 / 0 错误；Core 160 + Windows 25 = 185 项自动化测试通过，另有 10 项 Windows 原生集成检查通过；详见 docs/M4-connection-acceptance.md。
 - 真正 Windows 睡眠、解锁及 UI 交互仍按 M7 人工实机门禁验收；M5 进入日志与诊断阶段。
+
+- M5 完成普通日志 1 MB/10 份、详细日志 5 MB/4 份及最长七天清理；增加字节级大小限制、并发维护保护与敏感日志提示。
+- M5 Release 构建 0 警告 / 0 错误；Core 171 + Windows 25 = 196 项自动化测试，另有 10 项原生集成检查全部通过。详见 docs/M5-logging-acceptance.md。
+- M5 仅开展隔离自动化测试，未启动开发版托盘、未更改 HKCU Run、未中断外部 Remote。下一阶段 M6 安装/卸载/固定版本/回滚。

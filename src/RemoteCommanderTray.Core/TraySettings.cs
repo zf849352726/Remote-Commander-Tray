@@ -47,7 +47,15 @@ public sealed class TraySettings
 
     /// <summary>How many rotated log files to keep.</summary>
     [JsonPropertyName("logRetainedFiles")]
-    public int LogRetainedFiles { get; set; } = 3;
+    public int LogRetainedFiles { get; set; } = 10;
+
+    /// <summary>Size limit for the opt-in, potentially sensitive verbose log.</summary>
+    [JsonPropertyName("verboseLogMaxBytes")]
+    public long VerboseLogMaxBytes { get; set; } = 5L * 1024 * 1024;
+
+    /// <summary>Maximum number of rotated verbose log files.</summary>
+    [JsonPropertyName("verboseLogRetainedFiles")]
+    public int VerboseLogRetainedFiles { get; set; } = 4;
 
     /// <summary>
     /// Also write the agent's raw output to <c>logs/agent-verbose.log</c>.
@@ -73,6 +81,8 @@ public sealed class TraySettings
         HealthyRunSeconds = Math.Clamp(HealthyRunSeconds, 5, 3600);
         LogMaxBytes = Math.Clamp(LogMaxBytes, 64 * 1024, 64L * 1024 * 1024);
         LogRetainedFiles = Math.Clamp(LogRetainedFiles, 0, 20);
+        VerboseLogMaxBytes = Math.Clamp(VerboseLogMaxBytes, 64 * 1024, 64L * 1024 * 1024);
+        VerboseLogRetainedFiles = Math.Clamp(VerboseLogRetainedFiles, 0, 20);
 
         if (string.IsNullOrWhiteSpace(RemoteMcpUrl)
             || !Uri.TryCreate(RemoteMcpUrl, UriKind.Absolute, out var url)

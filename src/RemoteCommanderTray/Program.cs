@@ -90,7 +90,7 @@ internal static class Program
         if (startup == StartupState.NotRegistered)
         {
             if (!StartupRegistration.TrySet(true, out var startupError))
-                log.Write(LogSource.Tray, $"Tray login registration failed ({startupError}).");
+                log.Write(LogSource.Tray, "Tray login registration failed (check Windows startup settings).");
         }
         else if (startup == StartupState.Enabled)
         {
@@ -98,9 +98,9 @@ internal static class Program
         }
 
         Application.ThreadException += (_, e) =>
-            log.Write(LogSource.Tray, $"Unhandled UI exception: {e.Exception}");
+            log.Write(LogSource.Tray, $"Unhandled UI exception ({e.Exception.GetType().Name}, HRESULT={e.Exception.HResult:X8}).");
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            log.Write(LogSource.Tray, $"Unhandled exception: {e.ExceptionObject}");
+            log.Write(LogSource.Tray, $"Unhandled exception ({e.ExceptionObject?.GetType().Name ?? "unknown"}).");
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
         try
@@ -112,7 +112,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            log.Write(LogSource.Tray, $"Fatal: {ex}");
+            log.Write(LogSource.Tray, $"Fatal error ({ex.GetType().Name}, HRESULT={ex.HResult:X8}).");
             MessageBox.Show(
                 $"Remote Commander Tray could not start:\n\n{ex.Message}",
                 "Remote Commander Tray",
