@@ -51,8 +51,29 @@ $expected=(Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Js
 if((Get-FileHash -LiteralPath (Join-Path $SourceDir 'RemoteCommanderTray.exe') -Algorithm SHA256).Hash -cne $expected){
     throw 'Source package checksum mismatch.'
 }
-if((Get-Process RemoteCommanderTray -ErrorAction SilentlyContinue)) {
-    throw 'A tray process is running. Do not stop it automatically.'
+# Ignore trays owned by other signed-in Windows users. An unrelated
+# administrator-session tray must not block this standard user's SID install.
+$targetSession = (Get-Process -Id $PID).SessionId
+foreach ($tray in @(Get-CimInstance Win32_Process -Filter "Name='RemoteCommanderTray.exe'")) {
+    $trayPath = $tray.ExecutablePath
+    if ($trayPath -and [IO.Path]::GetFullPath($trayPath) -ieq [IO.Path]::GetFullPath($exe)) {
+        throw 'This SID installation is already running. Do not stop it automatically.'
+    }
+    $ownerSid = $null
+    try {
+        $owner = Invoke-CimMethod -InputObject $tray -MethodName GetOwnerSid -ErrorAction Stop
+        if ($owner.ReturnValue -eq 0) { $ownerSid = $owner.Sid }
+    } catch { }
+    if ($ownerSid) {
+        if ($ownerSid -eq $sid) {
+            throw 'A tray belonging to the current Windows account is running. Exit it first.'
+        }
+        continue
+    }
+    if ($tray.SessionId -eq $targetSession -or
+        ($tray.CommandLine -and $tray.CommandLine.Contains($sid))) {
+        throw 'Cannot determine whether a tray in the current account is running.'
+    }
 }
 $currentRun=Get-ItemProperty -Path $run -ErrorAction SilentlyContinue
 if((Test-Path $install) -or (Test-Path $data) -or

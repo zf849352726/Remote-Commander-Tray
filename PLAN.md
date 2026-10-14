@@ -373,3 +373,11 @@ Git：docs: finalize release and acceptance
 - 已核查托盘 PID 9764 → 托盘直接托管 Remote PID 31892 → MCP 子进程 PID 35756；日志 `Connected to Remote MCP`/`Device online`。真实远程 MCP 工具 `list_directory` 对 `verification/m6-runtime-probe` 返回预期文件，**托盘托管 Remote + MCP 工具调用门禁 = PASS**。
 - 尚未实测停止/再次启动同一远程连接的完整循环（当前会话依赖此 Remote，未主动断开）。
 - **M6 仍为进行中，M7 未开始**：真正非管理员 Windows 用户独立安装、升级、卸载门禁仍无实测 PASS 证据；详见 `docs/M6-installation-progress.md` 与 `docs/M6-remaining-gates.md`。
+
+### 2026-10-14 — M6 跨用户托盘进程误判修复（待标准用户重测）
+
+- 用户在本机标准用户会话运行 `tools/Test-M6StandardAccount.ps1`（预检和 `-RunAcceptance`）均提示 `A tray process is running`。确认新托盘 PID 9764 由 Administrator SID ...-1001 所有，此前两个脚本用全局 `Get-Process RemoteCommanderTray`，未限定 Windows 账户。
+- 修复 `tools/Test-M6StandardAccount.ps1` 与 `tools/Manage-RemoteCommanderTray.ps1`：按目标 EXE 路径、实际进程所有者 SID 判断，只拒绝修改当前用户自己的托盘；其他账户托盘不阻止。对进程所有者不可查且属于本会话的可疑进程仍拒绝，不结束任何进程。
+- 脚本 PowerShell AST 解析 PASS；在生产托盘运行期间，隔离 M6 安装生命周期全部 PASS；当前账户自身托盘保护负测 PASS，原 Remote 进程未停止。已将修正版管理器复制到 `verification/m6-dist/staging`，供下次真实标准用户测试读取。
+- **标准用户重新验收尚未执行，M6 Gate 仍未通过。** 此前打出的 `preview.3` 自解压 EXE 仍含旧管理脚本，不能作为已修复的发行包；应在资源充足后重新封装并验证。
+- 当前 C: 可用空间从约 280 MB 降到约 11 MB，严重不足，暂停安装/完整构建/标准用户新登录；先人工释放 C 盘空间，再在原标准用户会话重试只读预检与 `-RunAcceptance`。没有自动删除任何系统或用户文件。

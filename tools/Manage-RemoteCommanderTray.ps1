@@ -127,9 +127,41 @@ function Get-CurrentRunValue {
     } catch { return $null }
 }
 function Assert-NotRunning {
-    $running = @(Get-Process -Name 'RemoteCommanderTray' -ErrorAction SilentlyContinue)
-    if ($running.Count -gt 0) {
-        throw "Close Remote Commander Tray via Exit Application before installing, uninstalling or rolling back. Existing processes were not terminated."
+    # Per-user installations: another Windows account's tray must not block the
+    # current SID. TestMode additionally ignores the current user's real tray.
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $session = (Get-Process -Id $PID).SessionId
+    $target = [IO.Path]::GetFullPath($installedExe)
+    $candidates = @(Get-CimInstance Win32_Process -Filter "Name='RemoteCommanderTray.exe'")
+    foreach ($candidate in $candidates) {
+        $path = $candidate.ExecutablePath
+        if ($path -and [IO.Path]::GetFullPath($path) -ieq $target) {
+            throw 'The target installation is running. Exit that tray before modifying it.'
+        }
+        $ownerSid = $null
+        try {
+            $owner = Invoke-CimMethod -InputObject $candidate -MethodName GetOwnerSid -ErrorAction Stop
+            if ($owner.ReturnValue -eq 0) { $ownerSid = $owner.Sid }
+        } catch { }
+        if ($TestMode) {
+            # Never mistake the real user's tray for an isolated test installation.
+            if (!$path -and !$ownerSid -and $candidate.SessionId -eq $session) {
+                throw 'Cannot determine path/owner of a tray in this test session.'
+            }
+            continue
+        }
+        if ($ownerSid) {
+            if ($ownerSid -eq $sid) {
+                throw 'This Windows account already has a tray running. Exit it first.'
+            }
+            continue
+        }
+        # If ownership is unavailable, a same-session unknown candidate is
+        # potentially ours. Fail closed rather than overwrite an in-use EXE.
+        if ($candidate.SessionId -eq $session -or
+            ($candidate.CommandLine -and $candidate.CommandLine.Contains($sid))) {
+            throw 'A potentially current-account tray could not be verified as safe.'
+        }
     }
 }
 function FileHash([string]$Path) {

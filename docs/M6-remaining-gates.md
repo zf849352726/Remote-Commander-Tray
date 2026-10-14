@@ -48,3 +48,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemo
 用户已在 Windows 本机安全地手动从旧 npx Remote 切换为 `0.2.0-preview.3` Tray 管理的固定版 `@wonderwhy-er/desktop-commander@0.3.0 remote`，成功重新连接当前对话。实测托盘 PID 9764 → Remote PID 31892 → MCP PID 35756，日志 Connected / Online，并通过当前 Remote 的原生 MCP `list_directory` 成功返回项目 verification 文件夹内容。**托盘托管 MCP 真实工具调用门禁已 PASS**，无需再以“必须独立设备才能验证工具调用”作为阻塞理由。
 
 但是托盘 Stop agent → 启动 → 重新连接完整恢复循环尚未实测，因为当前聊天依赖该连接；不得冒充已验收。**真正非管理员 Windows 交互式账户的安装/更新/回滚/卸载仍待完成**，总 M6 Gate 未通过，M7 未开始。
+
+## 跨用户托盘误判修复后的重试（2026-10-14）
+
+原先脚本提示 `A tray process is running`，是因为它把管理员会话中运行的托盘也算作当前标准用户的托盘。已更新测试脚本和 staging 中的管理器，确认只保护同 SID 或同目标 EXE 的进程，并保留不明同会话进程的保守阻止。
+
+**当前环境先决条件：**C: 可用空间仅约 11 MB，已出现 PowerShell 内存异常。请先安全释放约 2 GB C 盘空间，避免登录和安装不稳定；不要因此结束生产托盘或删除 Remote 授权。
+
+清理完成后，在**现有标准用户自己登录的 PowerShell 会话**重新运行以下两步，保留全部输出：
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemote\tools\Test-M6StandardAccount.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemote\tools\Test-M6StandardAccount.ps1" -RunAcceptance
+```
+第二条必须在第一条输出 `M6_STANDARD_USER_PREFLIGHT=PASS` 后运行。只有出现 `M6_STANDARD_USER_ACCEPTANCE=PASS` 才通过真实标准用户 Gate。旧 `preview.3` SFX 仍含旧管理器，不要使用该包进行本次测试；此处使用 `verification\m6-dist\staging` 中同步后的脚本。
