@@ -65,6 +65,7 @@ public sealed record AgentSnapshot
         AgentState.Connecting => RestartCount > 0 || LastConnectedUtc is not null ? "Reconnecting" : "Connecting",
         AgentState.AuthenticationRequired => "Authentication required",
         AgentState.Online => "Online",
+        AgentState.Unknown => "Unknown",
         AgentState.Error => ProcessRunning ? "Error" : "Offline",
         _ => State.ToString(),
     };

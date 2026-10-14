@@ -66,6 +66,19 @@ public sealed class AgentSupervisor : IAsyncDisposable
     public string LaunchDescription => _launchDescription;
     public bool IsRunning => _process is { HasExited: false };
 
+    /// <summary>
+    /// Called for wake/unlock. The existing CLI owns reconnect; no second process is
+    /// launched and no external credentials are read. Synchronizes with output callbacks.
+    /// </summary>
+    public void OnSystemResumed()
+    {
+        lock (_callbackGate)
+        {
+            if (_disposed || !IsRunning) return;
+            _machine.OnSystemResumed();
+        }
+    }
+
     public async Task InitializeAsync()
     {
         if (_settings().StartAgentOnLaunch)

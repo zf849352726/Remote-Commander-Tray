@@ -42,10 +42,22 @@ public sealed class TrayTests
 
                 toggle.PerformClick(); Pump(() => supervisor.Snapshot.State == AgentState.Online && toggle.Enabled);
                 Pump(() => icon.Text.Contains("Online", StringComparison.Ordinal));
+                var processStatus = Field<ToolStripMenuItem>(tray, "_processItem");
+                Assert.Contains("Process: Running", processStatus.Text);
+                Assert.Contains("Connection: Online", processStatus.Text);
+
+                supervisor.OnSystemResumed();
+                Pump(() => icon.Text.Contains("Unknown", StringComparison.Ordinal));
+                Assert.Contains("Process: Running", processStatus.Text);
+                Assert.Contains("Connection: Unknown", processStatus.Text);
+                Assert.True(supervisor.IsRunning);
+
                 Assert.Equal("Stop agent", toggle.Text);
                 restart.PerformClick(); Pump(() => supervisor.Snapshot.TotalRestartCount == 1 && supervisor.Snapshot.State == AgentState.Online && restart.Enabled);
                 toggle.PerformClick(); Pump(() => supervisor.Snapshot.State == AgentState.Stopped && toggle.Enabled);
                 Assert.False(supervisor.IsRunning);
+                Assert.Contains("Process: Stopped", processStatus.Text);
+                Assert.Contains("Connection: Stopped", processStatus.Text);
                 settings.AgentArguments = $"\"{ProcessTests.Probe}\" auth";
                 toggle.PerformClick(); Pump(() => supervisor.Snapshot.UserCode == "ABCD-EFGH");
                 Pump(() => Field<ToolStripMenuItem>(tray, "_openSignInItem").Enabled);

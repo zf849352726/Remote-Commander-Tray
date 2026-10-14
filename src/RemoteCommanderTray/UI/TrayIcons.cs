@@ -114,6 +114,13 @@ internal sealed class TrayIcons : IDisposable
                 g.DrawLine(pen, P(0.62), P(0.40), P(0.70), P(0.48));
                 break;
 
+            case AgentState.Unknown:
+                // A question mark differs from stopped bars and error cross.
+                g.DrawArc(pen, P(0.32), P(0.22), P(0.36), P(0.36), 180f, 245f);
+                g.DrawLine(pen, P(0.50), P(0.58), P(0.50), P(0.66));
+                g.DrawEllipse(pen, P(0.49), P(0.77), P(0.02), P(0.02));
+                break;
+
             case AgentState.Error:
                 g.DrawLine(pen, P(0.32), P(0.32), P(0.68), P(0.68));
                 g.DrawLine(pen, P(0.68), P(0.32), P(0.32), P(0.68));

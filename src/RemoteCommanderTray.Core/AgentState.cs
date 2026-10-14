@@ -22,6 +22,9 @@ public enum AgentState
     /// <summary>The device is registered and marked online.</summary>
     Online,
 
+    /// <summary>The process is alive but connection has not been verified since a system resume/unlock.</summary>
+    Unknown,
+
     /// <summary>The agent failed, exited unexpectedly, or has been offline long enough to be called broken.</summary>
     Error,
 }

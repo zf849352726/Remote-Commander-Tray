@@ -101,6 +101,19 @@ public sealed class AgentStateMachine
     public void OnRestartScheduled(int attempt, DateTimeOffset whenUtc)
         => Update(s => s with { RestartCount = attempt, NextRestartUtc = whenUtc });
 
+    /// <summary>
+    /// Sleep/resume or session unlock invalidates a previously observed Online state.
+    /// Do not restart the process or assume that the CLI reconnected: wait for a fresh
+    /// official DeviceOnline/DeviceReady signal. This is an honest Unknown, not Offline.
+    /// </summary>
+    public void OnSystemResumed()
+        => Update(s =>
+        {
+            if (!s.ProcessRunning || s.State != AgentState.Online) return s;
+            _deviceReadySeen = false;
+            return Transition(s with { LastError = null }, AgentState.Unknown);
+        });
+
     /// <summary>The supervisor gave up waiting for a reconnect that never completed.</summary>
     public void OnConnectionStalled(TimeSpan elapsed)
         => Update(s => s.State is AgentState.Connecting or AgentState.Starting
@@ -218,7 +231,7 @@ public sealed class AgentStateMachine
             case AgentSignalKind.ChannelDisrupted:
                 // The official device owns heartbeat and channel recovery, so a blip is
                 // a status change for the icon, never a reason to restart the process.
-                return s.State == AgentState.Online
+                return s.State is AgentState.Online or AgentState.Unknown
                     ? Transition(s with { LastError = NullIfBlank(signal.Value) }, AgentState.Connecting)
                     : s;
 

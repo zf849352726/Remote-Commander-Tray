@@ -1,6 +1,6 @@
 # Remote Commander Tray V2 — 项目总计划（PLAN.md）
 
-> 状态：已获执行授权，**M1–M3 已通过阶段验收，M4 待开始**。严格按 M1→M8 阶段门禁执行。
+> 状态：已获执行授权，**M1–M4 已通过阶段验收，M5 待开始**。严格按 M1→M8 阶段门禁执行。
 >
 > 本地开发根目录：D:\DesktopCommanderRemote
 >
@@ -276,7 +276,7 @@ Git：docs: finalize release and acceptance
 | M1 | 已通过验收；见 docs/M1-local-baseline.md |
 | M2 | 已通过验收；见 docs/M2-lifecycle-acceptance.md |
 | M3 | 阶段自动化验收通过；见 docs/M3-tray-acceptance.md（实机登录验收在 M7） |
-| M4 | 未开始 |
+| M4 | 阶段自动化验收通过；见 docs/M4-connection-acceptance.md（睡眠/解锁实机验收在 M7） |
 | M5 | 未开始 |
 | M6 | 未开始 |
 | M7 | 未开始 |
@@ -302,3 +302,7 @@ Git：docs: finalize release and acceptance
 - M3 Release 构建 0 警告 / 0 错误；180 项自动化测试、10 项 Windows 原生集成检查全部通过。详见 docs/M3-tray-acceptance.md。
 - 未安装开发版 EXE 或向真实 HKCU Run 写入启动项，真实 Windows 登录及托盘端到端测试保留 M7。
 - 下一阶段 M4：连接状态、网络与授权恢复。
+
+- M4 完成连接状态与电源会话恢复逻辑：进程/连接状态分离、唤醒或解锁时将旧 Online 状态置 Unknown，收到新 CLI 信号后再确认在线；不重启正常运行中的 Remote。
+- M4 Release 构建 0 警告 / 0 错误；Core 160 + Windows 25 = 185 项自动化测试通过，另有 10 项 Windows 原生集成检查通过；详见 docs/M4-connection-acceptance.md。
+- 真正 Windows 睡眠、解锁及 UI 交互仍按 M7 人工实机门禁验收；M5 进入日志与诊断阶段。

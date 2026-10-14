@@ -32,6 +32,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private readonly ToolStripMenuItem _headerItem;
     private readonly ToolStripMenuItem _detailItem;
+    private readonly ToolStripMenuItem _processItem;
     private readonly ToolStripSeparator _signInSeparator;
     private readonly ToolStripMenuItem _openSignInItem;
     private readonly ToolStripMenuItem _copyCodeItem;
@@ -86,6 +87,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             externalAgentDetector: externalAgentDetector ?? new WindowsExternalAgentDetector());
 
         _headerItem = new ToolStripMenuItem("Starting...") { Enabled = false };
+        _processItem = new ToolStripMenuItem("Process: Stopped | Connection: Stopped") { Enabled = false };
         _detailItem = new ToolStripMenuItem("Last connected: never") { Enabled = false };
         _signInSeparator = new ToolStripSeparator { Visible = false };
         _openSignInItem = new ToolStripMenuItem("Open sign-in page", null, (_, _) => OpenSignInPage())
@@ -112,6 +114,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.AddRange(
         [
             _headerItem,
+            _processItem,
             _detailItem,
             _signInSeparator,
             _openSignInItem,
@@ -154,6 +157,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _supervisor.Changed += (_, snapshot) => OnUiThread(() => ApplySnapshot(snapshot));
         _supervisor.Notification += (_, notification) => OnUiThread(() => ShowNotification(notification));
 
+        // WinForms has a message pump; SystemEvents forwards actual Windows
+        // suspend/resume and user session notifications. Never force-restart the CLI.
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+
         ApplySnapshot(_supervisor.Snapshot);
         Run(_supervisor.InitializeAsync);
     }
@@ -173,6 +181,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var snapshot = _snapshot;
 
         _headerItem.Text = $"{GlyphFor(snapshot.State)} {snapshot.StateLabel}{DeviceSuffix(snapshot)}";
+        _processItem.Text = $"Process: {(snapshot.ProcessRunning ? "Running" : "Stopped")} | Connection: {snapshot.StateLabel}";
         _detailItem.Text = BuildDetailLine(snapshot);
 
         var signInVisible = snapshot.State == AgentState.AuthenticationRequired;
@@ -210,6 +219,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         AgentState.Online => "✓",                 // check
         AgentState.Connecting or AgentState.Starting => "…", // ellipsis
+        AgentState.Unknown => "?", // connection needs re-verification
         AgentState.AuthenticationRequired => "\U0001F511", // key
         AgentState.Error => "×",                  // multiplication sign
         _ => "⏸",                                 // pause
@@ -247,6 +257,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private static string Truncate(string value, int maxLength)
         => value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
+
+    // --- Windows state events -------------------------------------------
+
+    private void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+            OnUiThread(_supervisor.OnSystemResumed);
+    }
+
+    private void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        if (e.Reason == Microsoft.Win32.SessionSwitchReason.SessionUnlock)
+            OnUiThread(_supervisor.OnSystemResumed);
+        // Locking does not stop the CLI or force a disconnect.
+    }
 
     // --- commands --------------------------------------------------------
 
@@ -538,6 +563,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (disposing)
         {
+            Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
             _menuTimer.Dispose();
             try
             {
