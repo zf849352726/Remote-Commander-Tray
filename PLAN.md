@@ -327,3 +327,10 @@ Git：docs: finalize release and acceptance
 - M6 连接恢复补测：正式 D 盘安装、当前账户的注册/快捷方式、托盘实际启动与单实例、保留用户数据的真实卸载均通过；原有 Remote 进程不变。
 - 全局固定包 `@wonderwhy-er/desktop-commander@0.3.0` 已安装且通过真实 stdio MCP initialize / tools/list / tools/call；本地进程解析器正确识别 D 盘 Node 与包入口。
 - 仍保留 M6 未通过门禁：非管理员用户、不同版本二进制回滚、托盘托管 Remote 模式的 MCP 实机测试。详见 docs/M6-installation-progress.md；不得提前标记 M7 开始。
+
+### 2026-10-14 — M6 实机回滚与安装 ACL 门禁更新
+
+- 两个不同的自包含 EXE（`0.2.0-preview.1`、`0.2.0-preview.2`）已经在 D 盘隔离环境完成升级、旧版本与发行清单回滚、回滚备份篡改保护；保留用户配置，且 HKCU Run 和现有 Remote 进程均无变化。
+- 增加 `tools/Test-M6DistinctRollback.ps1` 和只读权限审计脚本 `tools/Audit-M6InstallPermissions.ps1`；详见 `docs/M6-installation-progress.md`。
+- M6 新发现的安全门禁：`D:\Apps` 及应用和数据根目录继承 `Authenticated Users: FullControl`，审计 FAIL。暂不自行调整可能影响其他软件的父目录 ACL。
+- 非管理员独立账户真实安装、托盘托管 Remote 模式的真实 MCP 调用仍未验收。M6 保持进行中，M7 不启动，Git 提交只允许 WIP 标记。

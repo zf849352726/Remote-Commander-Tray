@@ -71,3 +71,22 @@
 - 最终候选安装包重新生成，并从实际 EXE 自解压验证 5 项内容（EXE、管理脚本、安装入口、清单及 LICENSE）。最终包 SHA256：`BD01EC0F116B71468C6EEEAFA38E200147940C7155225EC04E8200C2A8B0B801`；安装后 EXE SHA256：`EC2C0C6BF1ECAFBBC556A468C26E0197C0817A36B62D62A7B095EBB2985E68C2`。
 - 已执行真实卸载（`-KeepUserData`）并验证程序文件、HKCU Run、快捷方式及卸载注册项被清理、配置保留、外部 Remote PID 不变；随后通过最终自解压包重新安装并再次通过清单哈希检查。
 - 此次为当前管理员账号的真实操作，不等同于独立标准用户测试；托盘托管 Remote 模式和不同 EXE 版本回滚仍待完整验收。
+
+## 2026-10-14 — 两个不同自包含 EXE 的升级回滚实测
+
+- 在 `verification` 中额外发布应用版本 `0.2.0-preview.2`（`dotnet publish`，自包含 Windows x64 单文件），保留正式安装的 `0.2.0-preview.1`，**未触碰 D:\Apps 下的正式应用或外部 Remote**。
+- 版本 1 EXE SHA256：`EC2C0C6BF1ECAFBBC556A468C26E0197C0817A36B62D62A7B095EBB2985E68C2`。
+- 版本 2 EXE SHA256：`756C1288AA30C474914FF918C53FF1D0B05FB1F3E8B45ED2CBE2217581BADB13`。
+- `tools/Test-M6DistinctRollback.ps1` 真实运行通过：v1 安装 → v2 升级 → 验证 v1 SHA256 备份 → 回滚恢复 v1 及发行清单 → 再次升级 → 篡改备份后拒绝回滚且当前 v2 不变 → 卸载保留设置。
+- 验证 HKCU Run 不变、当前远程 npx Remote PID 集合不变。日志：`verification/m6-distinct-rollback.log`，最终记录 `M6_DISTINCT_EXE_ROLLBACK=PASS`。
+- **不同实际程序版本的升级/回滚门禁在隔离 Windows 实机文件系统中通过**；当前用户的正式安装仍为原候选版。
+
+## 2026-10-14 — 安装父目录 ACL 审查与新增阻塞
+
+- 新增只读审计脚本 `tools/Audit-M6InstallPermissions.ps1`，验证程序目录、数据根目录及公共上级目录是否赋予过宽的写权限。
+- 本机审计返回 `M6_INSTALL_ACL_AUDIT=FAIL`（退出码 2）：`D:\Apps`、`D:\Apps\RemoteCommanderTray` 和 `D:\Apps\RemoteCommanderTrayData` 均继承了 `Authenticated Users`（SID `S-1-5-11`）的 `FullControl`。
+- 已有 `D:\Apps\RemoteCommanderTrayData\<SID>` 用户个人目录 ACL 受限，但上级目录的过宽权限仍可能允许其他账户篡改或替换程序文件/目录项。这与多 Windows 用户安全隔离的目标冲突。
+- **未修改 `D:\Apps` 或 D 盘 ACL**：该目录可能有其他程序；未经评估不能收紧整个公共父目录权限。正式安装保持原状态，安全整改列为 M6 阻塞。
+- Windows 11 家庭版未具备可直接验证的 Windows Sandbox 环境；本机当前是管理员会话。没有创建系统用户，没有通过当前管理员会话冒充非管理员通过验收。
+- 另一剩余门禁：在独立环境中验证托盘进程真正管理的 Remote 模式 MCP 工具调用。此前固定版 `0.3.0` stdio 的 `initialize`、`tools/list`、`tools/call` 已通过，但不等于托盘托管 Remote；此处为了不破坏聊天所依赖的 npx 连接而保持未测试。
+- 因此 **M6 仍为进行中，尚不能标记 PASS，不进入 M7**；下一步应先明确 D 盘共享父目录 ACL 的安全处理方式，及获得独立非管理员账户/设备以完成剩余两项验收。
