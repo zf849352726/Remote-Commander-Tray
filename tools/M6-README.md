@@ -53,3 +53,20 @@ Read-only security gate:
 **Current machine: FAIL.** `D:\Apps`, `D:\Apps\RemoteCommanderTray` and `D:\Apps\RemoteCommanderTrayData` inherit `Authenticated Users: FullControl`. Fixing the parent ACL requires assessing other software in `D:\Apps`; the build/test scripts must not silently alter it. The SID-specific data folder itself is private but parent permissions still matter.
 
 Real non-administrator setup/uninstall and tray-managed Remote MCP tests need a separate safe Windows login/VM so the live ChatGPT Remote connection remains available. Do not claim these were passed from the administrator login or by a separate stdio MCP process. M6 stays open until the remaining gates are verified.
+
+## D drive ACL security gate (verified 2026-10-14)
+
+Use the read-only audit before and after an installation:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Audit-M6InstallPermissions.ps1
+
+Minimal ACL repair has been tested in a sandbox and applied to D:\Apps only:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Repair-M6InstallPermissions.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Repair-M6InstallPermissions.ps1 -Apply
+
+The tool first refuses unrelated D:\Apps contents, saves the subtree ACL snapshot to verification/m6-acl-backups, and applies inheritable full control for current SID/SYSTEM/Administrators plus read/execute for Users. It does not change D:\ root permissions or official Remote credentials.
+
+On this particular Windows host, native icacls /restore failed with error 1300. The sandbox-tested rollback is ONLY: icacls.exe "D:\Apps" /reset, and only if the original D:\Apps ACL was inherited-only and the D:\ parent ACL is unchanged. Rollback intentionally restores the former INSECURE Authenticated Users:FullControl inheritance. Do not run casually.
+
+The current application installation is shared at D:\Apps\RemoteCommanderTray, writable only by the installing Windows SID. Other non-admin users cannot independently install to this shared location; per-user installation layout remains an unresolved M6 design/acceptance requirement. M6 is not fully accepted until this and tray-managed Remote MCP mode are tested safely.

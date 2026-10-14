@@ -90,3 +90,15 @@
 - Windows 11 家庭版未具备可直接验证的 Windows Sandbox 环境；本机当前是管理员会话。没有创建系统用户，没有通过当前管理员会话冒充非管理员通过验收。
 - 另一剩余门禁：在独立环境中验证托盘进程真正管理的 Remote 模式 MCP 工具调用。此前固定版 `0.3.0` stdio 的 `initialize`、`tools/list`、`tools/call` 已通过，但不等于托盘托管 Remote；此处为了不破坏聊天所依赖的 npx 连接而保持未测试。
 - 因此 **M6 仍为进行中，尚不能标记 PASS，不进入 M7**；下一步应先明确 D 盘共享父目录 ACL 的安全处理方式，及获得独立非管理员账户/设备以完成剩余两项验收。
+
+## 2026-10-14 — D:\Apps 最小权限整改已通过（用户授权）
+
+- 实际改动范围仅为 `D:\Apps` 的 ACL 与其 Windows 自动继承，不修改 D 盘根目录。实施前检查 `D:\Apps` 只有本项目的 `RemoteCommanderTray`、`RemoteCommanderTrayData` 两个子目录，没有其他软件。
+- 修改前根目录及两个子目录继承 `Authenticated Users: FullControl`。整改后，`D:\Apps` 停止继承 D 盘根目录的宽松权限：当前用户 SID、SYSTEM、Administrators = FullControl；BUILTIN\Users = ReadAndExecute。程序目录和数据根目录继承新的最小权限，单用户 SID 数据子目录维持独立 ACL。
+- 新增 `tools/Repair-M6InstallPermissions.ps1`：限定只允许 D:\Apps 或项目 verification 隔离沙箱；先检查目录仅含项目自身子目录及无链接，备份完整子树 ACL 到 verification 后才应用；失败时只对原先全部继承的目标根目录执行已验证的 /reset 恢复方法。
+- 隔离目录完整验证：先 dry-run → 应用 → 审计 PASS → /reset 恢复原继承权限 → 原始审计 FAIL（符合预期），文件内容不变；确认恢复方案可用。Windows 上原生 `icacls /restore` 返回错误 1300，因此**不能**把 /restore 视为验证通过的回滚方式。
+- 真正执行 D:\Apps 修改后，`tools/Audit-M6InstallPermissions.ps1` 返回 `M6_INSTALL_ACL_AUDIT=PASS`；程序目录已不再向 Authenticated Users 授予写/删除权限。
+- 更改前后正式 EXE SHA256 均为 `EC2C0C6BF1ECAFBBC556A468C26E0197C0817A36B62D62A7B095EBB2985E68C2`；现有 Remote PID `14924,17544,32716` 集合不变。
+- 当前用户 SID 私有数据目录 ACL 保持，实际日志目录写/读通过。安装管理器 Check 正常，重新执行 M6 隔离生命周期测试（初装、升级、回滚、篡改保护、保留/删除配置、HKCU Run 不变）全部通过。
+- 真实 ACL 备份位于 `verification/m6-acl-backups/D-Apps-20261014T081150623Z.acl`（本机不纳入 Git）。**仅当确需恢复且 D:\ 父 ACL 仍未变化时**，管理员可执行 `icacls.exe "D:\Apps" /reset` 恢复原继承机制；此操作会重新引入不安全的广泛写权限，不能作为正常运行方式。
+- **安全门禁整改通过，但 M6 继续进行中。** 当前安装目录采用一个固定共享路径，只授予此用户 SID 写权限，因此其他标准用户不能自行维护共享程序；需要后续设计并验证每用户安装布局，不能虚报非管理员自助安装 PASS。托盘托管 Remote 模式的 MCP 实机验证也仍待隔离环境完成。

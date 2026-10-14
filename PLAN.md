@@ -334,3 +334,11 @@ Git：docs: finalize release and acceptance
 - 增加 `tools/Test-M6DistinctRollback.ps1` 和只读权限审计脚本 `tools/Audit-M6InstallPermissions.ps1`；详见 `docs/M6-installation-progress.md`。
 - M6 新发现的安全门禁：`D:\Apps` 及应用和数据根目录继承 `Authenticated Users: FullControl`，审计 FAIL。暂不自行调整可能影响其他软件的父目录 ACL。
 - 非管理员独立账户真实安装、托盘托管 Remote 模式的真实 MCP 调用仍未验收。M6 保持进行中，M7 不启动，Git 提交只允许 WIP 标记。
+
+### 2026-10-14 — M6 D 盘 ACL 安全整改验收
+- 用户已授权最小权限整改。确认 D:\Apps 下仅存在 RemoteCommanderTray、RemoteCommanderTrayData 两个项目目录，没有其他应用目录。
+- 先在 verification 沙箱完成 ACL 加固、审计 PASS、/reset 恢复原继承 ACL 的演练。Windows icacls /restore 在该设备返回 1300，禁止将其当作已验证的恢复方法。
+- 真实 D:\Apps 取消继承 Authenticated Users:FullControl，改为当前用户 SID、SYSTEM、Administrators 完全控制，Users 只读执行；子目录正确继承。
+- 真实 ACL 审计由 FAIL 转为 PASS，程序 EXE SHA256 与 Remote 进程 PID 均未变化，私人日志目录写读、安装管理器 Check 及隔离生命周期回归均通过。
+- 本地 ACL 备份：verification/m6-acl-backups/D-Apps-20261014T081150623Z.acl。若要恢复先前不安全的权限，前提是 D: 父权限未变，才能对 D:\Apps 执行 icacls /reset。
+- 当前固定共享安装位置仅当前账户可写，因此其他标准用户自助安装尚需修改布局并验收；托盘托管 Remote 的 MCP 实机验收亦未完成。M6 仍在进行中，不进入 M7。
