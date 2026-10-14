@@ -48,9 +48,8 @@ internal static class Program
         RollingFileLog log;
         try
         {
-            // Creating the data directory can fail on its own - a redirected, full or
-            // locked %LOCALAPPDATA%. Doing it outside the handler below turned that into
-            // an unhandled exception and a launch that simply never appeared.
+            // The default per-user settings and logs live on D:. Handle unavailable
+            // drives, full disks, or inaccessible data directories explicitly.
             paths = new AppPaths();
             paths.EnsureCreated();
 

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace RemoteCommanderTray.Core;
 
 /// <summary>Filesystem and environment lookups, abstracted so resolution can be unit-tested.</summary>
@@ -6,6 +8,8 @@ public interface IAgentEnvironment
     bool FileExists(string path);
 
     string? GetVariable(string name);
+
+    string? ReadAllText(string path);
 }
 
 /// <summary>Real process environment.</summary>
@@ -14,6 +18,12 @@ public sealed class SystemAgentEnvironment : IAgentEnvironment
     public bool FileExists(string path) => File.Exists(path);
 
     public string? GetVariable(string name) => Environment.GetEnvironmentVariable(name);
+
+    public string? ReadAllText(string path)
+    {
+        try { return File.Exists(path) ? File.ReadAllText(path) : null; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
 }
 
 /// <summary>Outcome of looking for the official CLI.</summary>
@@ -31,15 +41,17 @@ public readonly record struct AgentResolution(AgentLaunchSpec? Spec, string? Pro
 /// Preference order, best first:
 /// <list type="number">
 /// <item>an explicit override in <c>settings.json</c>;</item>
-/// <item><c>node.exe</c> plus the globally installed package's <c>dist/index.js</c> - no shell,
-/// no shim, so stdout redirection and process-tree teardown behave predictably;</item>
-/// <item>the <c>desktop-commander.cmd</c> npm shim, run through <c>cmd.exe</c>;</item>
-/// <item><c>npx</c>, which downloads the package on first use.</item>
+/// <item><c>node.exe</c> plus the globally installed package's <c>dist/index.js</c>
+/// after verifying an exact pinned version in package.json.</item>
+/// <item>No fallback to shim, npx, @latest or downloads on Windows login.</item>
 /// </list>
 /// </remarks>
 public sealed class AgentCommandResolver
 {
     public const string PackageName = "@wonderwhy-er/desktop-commander";
+    // Verified release candidate for this application. Changes require an explicit
+    // release update and a real MCP roundtrip validation.
+    public const string PinnedVersion = "0.3.0";
 
     private static readonly string[] PackageRelativePath =
         ["node_modules", "@wonderwhy-er", "desktop-commander", "dist", "index.js"];
@@ -72,7 +84,7 @@ public sealed class AgentCommandResolver
         }
 
         var node = FindNode();
-        var entryPoint = FindPackageEntryPoint();
+        var entryPoint = FindVerifiedPackageEntryPoint(node);
         if (node is not null && entryPoint is not null)
         {
             var arguments = $"{Quote(entryPoint)} {suffix}";
@@ -81,36 +93,19 @@ public sealed class AgentCommandResolver
                 null);
         }
 
-        var shim = FindOnPath("desktop-commander.cmd") ?? FindOnPath("desktop-commander.exe");
-        if (shim is not null)
-        {
-            return new AgentResolution(WrapInCmd($"{Quote(shim)} {suffix}"), null);
-        }
-
-        var npx = FindOnPath("npx.cmd") ?? FindOnPath("npx.exe");
-        if (npx is not null)
-        {
-            return new AgentResolution(WrapInCmd($"{Quote(npx)} -y {PackageName}@latest {suffix}"), null);
-        }
-
-        return new AgentResolution(
-            null,
-            $"Could not find Desktop Commander. Install Node.js and run \"npm install -g {PackageName}\", "
-            + "or set \"agentExecutable\" in settings.json.");
+        return new AgentResolution(null,
+            $"Desktop Commander Remote {PinnedVersion} is required as an exact global npm version. "
+            + $"Run \"npm install -g {PackageName}@{PinnedVersion}\" yourself after checking existing "
+            + "Remote instances. Startup will not download packages or use unverified npm shims.");
     }
 
     private AgentLaunchSpec WrapInCmd(string commandLine)
     {
         var comSpec = _environment.GetVariable("ComSpec");
         if (string.IsNullOrWhiteSpace(comSpec) || !_environment.FileExists(comSpec))
-        {
             comSpec = "cmd.exe";
-        }
-
-        // /d skips AutoRun scripts, /s keeps the outer quotes intact for /c.
         return new AgentLaunchSpec(comSpec, $"/d /s /c \"{commandLine}\"", commandLine);
     }
-
     private string? FindNode()
         => FindOnPath("node.exe")
            ?? FirstExisting(
@@ -118,10 +113,14 @@ public sealed class AgentCommandResolver
                Combine(_environment.GetVariable("ProgramFiles(x86)"), "nodejs", "node.exe"),
                Combine(_environment.GetVariable("LOCALAPPDATA"), "Programs", "nodejs", "node.exe"));
 
-    private string? FindPackageEntryPoint()
+    private string? FindVerifiedPackageEntryPoint(string? nodePath)
     {
+        // nvm-windows commonly keeps the global npm modules beside node.exe on D:.
+        // Looking beside the selected Node installation avoids any global npm
+        // environment changes or implicit downloads.
         var roots = new List<string?>
         {
+            string.IsNullOrWhiteSpace(nodePath) ? null : Path.GetDirectoryName(nodePath),
             _environment.GetVariable("NPM_CONFIG_PREFIX"),
             Combine(_environment.GetVariable("APPDATA"), "npm"),
             Combine(_environment.GetVariable("ProgramFiles"), "nodejs"),
@@ -137,13 +136,31 @@ public sealed class AgentCommandResolver
             }
 
             var candidate = Combine(root, PackageRelativePath);
-            if (candidate is not null && _environment.FileExists(candidate))
+            var manifest = Combine(root, "node_modules", "@wonderwhy-er", "desktop-commander", "package.json");
+            if (candidate is not null && manifest is not null && _environment.FileExists(candidate)
+                && IsPinnedManifest(_environment.ReadAllText(manifest)))
             {
                 return candidate;
             }
         }
 
         return null;
+    }
+
+    private static bool IsPinnedManifest(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            return root.TryGetProperty("name", out var name)
+                && root.TryGetProperty("version", out var version)
+                && string.Equals(name.GetString(), PackageName, StringComparison.Ordinal)
+                && string.Equals(version.GetString(), PinnedVersion, StringComparison.Ordinal);
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
     }
 
     private string? FindOnPath(string fileName)

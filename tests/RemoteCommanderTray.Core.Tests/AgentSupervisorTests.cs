@@ -258,5 +258,6 @@ public class AgentSupervisorTests : IDisposable
         public bool FileExists(string path) => false;
 
         public string? GetVariable(string name) => null;
+        public string? ReadAllText(string path) => null;
     }
 }

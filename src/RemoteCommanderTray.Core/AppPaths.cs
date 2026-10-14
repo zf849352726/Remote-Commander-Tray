@@ -1,3 +1,5 @@
+using System.Security.Principal;
+
 namespace RemoteCommanderTray.Core;
 
 /// <summary>
@@ -8,32 +10,44 @@ namespace RemoteCommanderTray.Core;
 public sealed class AppPaths
 {
     public const string FolderName = "RemoteCommanderTray";
+    public const string DataBaseDirectory = @"D:\Apps\RemoteCommanderTrayData";
+
+    /// <summary>Separate settings and logs for each signed-in Windows account.</summary>
+    public static string DefaultUserDataDirectory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var sid = WindowsIdentity.GetCurrent().User?.Value
+                ?? throw new InvalidOperationException("Unable to determine Windows user SID.");
+            return Path.Combine(DataBaseDirectory, sid);
+        }
+
+        return Path.Combine(DataBaseDirectory, Environment.UserName);
+    }
 
     public AppPaths(string? rootOverride = null)
     {
-        Root = rootOverride ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            FolderName);
+        Root = rootOverride ?? DefaultUserDataDirectory();
         LogDirectory = Path.Combine(Root, "logs");
         SettingsFile = Path.Combine(Root, "settings.json");
         AgentLogFile = Path.Combine(LogDirectory, "agent.log");
         VerboseAgentLogFile = Path.Combine(LogDirectory, "agent-verbose.log");
     }
 
-    /// <summary><c>%LOCALAPPDATA%\RemoteCommanderTray</c>.</summary>
+    /// <summary><c>D:\Apps\RemoteCommanderTrayData\&lt;Windows SID&gt;</c>.</summary>
     public string Root { get; }
 
-    /// <summary><c>%LOCALAPPDATA%\RemoteCommanderTray\logs</c>.</summary>
+    /// <summary>Per-user log folder below the D: data root.</summary>
     public string LogDirectory { get; }
 
-    /// <summary><c>%LOCALAPPDATA%\RemoteCommanderTray\settings.json</c>.</summary>
+    /// <summary>Per-user settings file below the D: data root.</summary>
     public string SettingsFile { get; }
 
-    /// <summary><c>%LOCALAPPDATA%\RemoteCommanderTray\logs\agent.log</c>.</summary>
+    /// <summary>Normal per-user log on the D: drive.</summary>
     public string AgentLogFile { get; }
 
     /// <summary>
-    /// <c>%LOCALAPPDATA%\RemoteCommanderTray\logs\agent-verbose.log</c>, written only
+    /// Per-user verbose log on the D: drive, written only
     /// when the user opts in. Never read by diagnostics.
     /// </summary>
     public string VerboseAgentLogFile { get; }

@@ -1,6 +1,6 @@
 # Remote Commander Tray V2 — 项目总计划（PLAN.md）
 
-> 状态：已获执行授权，**M1–M5 已通过阶段验收，M6 待开始**。严格按 M1→M8 阶段门禁执行。
+> 状态：已获执行授权，**M1–M5 已通过阶段验收，M6 正在执行且真实部署门禁待完成**。严格按 M1→M8 阶段门禁执行。
 >
 > 本地开发根目录：D:\DesktopCommanderRemote
 >
@@ -54,7 +54,7 @@
 | 睡眠/锁屏 | 不阻止睡眠；锁屏不主动停止，唤醒后恢复检查 |
 | 用户范围 | 当前 Windows 用户独立运行；不共享跨账户授权 |
 | 源码托管 | Fork 上游到个人 GitHub；开发分支、阶段提交及 Release |
-| 安装路径 | %LOCALAPPDATA%\Programs\RemoteCommanderTray\ |
+| 安装路径 | D:\Apps\RemoteCommanderTray\ |
 | 安装形式 | 自包含 EXE + 当前用户安装器 |
 | 卸载 | 删除本程序安装文件与注册项；询问保留设置/日志；保留官方认证 |
 | 验收 | 自动测试 + Windows 实机测试 + 实际 MCP 调用 |
@@ -190,7 +190,7 @@ Git：feat: add log retention and diagnostics
 
 任务：
 - 发布 Windows x64 .NET 自包含 EXE，制作当前用户安装器。
-- 默认安装在 %LOCALAPPDATA%\Programs\RemoteCommanderTray\。
+- 默认安装在 D:\Apps\RemoteCommanderTray\。
 - 检测并使用已验证的固定 npm 全局 Remote 版本，执行路径明确。
 - 全局 npm 安装遇到权限或路径冲突时先诊断，不擅自提权。
 - 禁止启动时隐式使用 @latest；升级只能由用户明确发起。
@@ -278,7 +278,7 @@ Git：docs: finalize release and acceptance
 | M3 | 阶段自动化验收通过；见 docs/M3-tray-acceptance.md（实机登录验收在 M7） |
 | M4 | 阶段自动化验收通过；见 docs/M4-connection-acceptance.md（睡眠/解锁实机验收在 M7） |
 | M5 | 阶段自动化验收通过；见 docs/M5-logging-acceptance.md |
-| M6 | 未开始 |
+| M6 | 进行中：自动化及隔离安装测试通过，真实安装与升级后 MCP 验收待完成；见 docs/M6-installation-progress.md |
 | M7 | 未开始 |
 | M8 | 未开始 |
 
@@ -310,3 +310,20 @@ Git：docs: finalize release and acceptance
 - M5 完成普通日志 1 MB/10 份、详细日志 5 MB/4 份及最长七天清理；增加字节级大小限制、并发维护保护与敏感日志提示。
 - M5 Release 构建 0 警告 / 0 错误；Core 171 + Windows 25 = 196 项自动化测试，另有 10 项原生集成检查全部通过。详见 docs/M5-logging-acceptance.md。
 - M5 仅开展隔离自动化测试，未启动开发版托盘、未更改 HKCU Run、未中断外部 Remote。下一阶段 M6 安装/卸载/固定版本/回滚。
+
+- M6 已完成固定 Remote 版本 0.3.0 的启动解析器、win-x64 自包含发布、IExpress 当前用户安装包及升级/卸载/回滚脚本。
+- Release 构建 0 警告 / 0 错误；Core 174、Windows 25 项测试和 Windows 10 项原生集成检查通过，隔离安装/回滚及自解压验证通过。
+- M6 尚未通过真实普通用户安装与升级后 MCP 工具调用门禁，暂不开始 M7，不提交阶段 PASS commit；见 docs/M6-installation-progress.md。
+
+
+### 2026-10-14 — M6 D 盘默认安装位置变更（用户已确认）
+
+- 原先位于 C: LocalAppData 的程序安装位置改为 `D:\Apps\RemoteCommanderTray`；源码开发目录仍为 `D:\DesktopCommanderRemote`。
+- 配置和日志根目录改为 `D:\Apps\RemoteCommanderTrayData`；按 Windows 用户 SID 建立独立目录，以避免不同用户共用配置与日志。
+- HKCU Run 登录自启继续保留，注册时指向 D 盘程序路径，不修改 Windows 对开机启动项的禁用决定。
+- 旧的 C 盘数据不自动搬移或删除，不修改官方认证文件，不影响正在运行的 Remote。
+- 增加新的 D 路径测试及安装脚本隔离测试；真实普通用户 D 盘安装与升级后 MCP 验收仍是 M6 未完成门禁。
+
+- M6 连接恢复补测：正式 D 盘安装、当前账户的注册/快捷方式、托盘实际启动与单实例、保留用户数据的真实卸载均通过；原有 Remote 进程不变。
+- 全局固定包 `@wonderwhy-er/desktop-commander@0.3.0` 已安装且通过真实 stdio MCP initialize / tools/list / tools/call；本地进程解析器正确识别 D 盘 Node 与包入口。
+- 仍保留 M6 未通过门禁：非管理员用户、不同版本二进制回滚、托盘托管 Remote 模式的 MCP 实机测试。详见 docs/M6-installation-progress.md；不得提前标记 M7 开始。

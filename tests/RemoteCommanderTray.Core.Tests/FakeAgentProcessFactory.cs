@@ -163,6 +163,9 @@ internal sealed class InstalledAgentEnvironment : IAgentEnvironment
 
     public bool FileExists(string path) => path is Node or Entry;
 
+    public string? ReadAllText(string path) => path.EndsWith(@"\desktop-commander\package.json", StringComparison.OrdinalIgnoreCase)
+        ? """{"name":"@wonderwhy-er/desktop-commander","version":"0.3.0"}""" : null;
+
     public string? GetVariable(string name) => name switch
     {
         "PATH" => @"C:\Program Files\nodejs",
