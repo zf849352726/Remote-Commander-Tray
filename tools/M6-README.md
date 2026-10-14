@@ -138,3 +138,18 @@ Isolated proof without production integration changes:
 Do not confuse this migration with proof that a standard Windows account
 can independently install, or with the separate tray-managed Remote
 MCP acceptance test. Both remain open M6 gates.
+
+## M6 pending acceptance (separate non-admin login and Remote test device)
+
+Do not use administrator UAC-filtered shells or S4U scheduled tasks as evidence
+of an interactive standard-user installer test. In a real non-administrator
+Windows login, execute `tools/Test-M6StandardAccount.ps1` for read-only preflight;
+then run it with `-RunAcceptance` only when the preflight passes and the target
+SID has no previous tray data. It will install, verify, upgrade, roll back,
+uninstall and retain settings in that user's own HKCU and D: SID folders.
+
+The tray-managed Remote MCP test requires a **second independent Windows
+test environment** and its own official Remote login. The live npx remote
+agent on this machine must never be stopped, copied or registered over.
+Both outstanding gates and safe step-by-step evidence requirements are in
+`docs/M6-remaining-gates.md`.

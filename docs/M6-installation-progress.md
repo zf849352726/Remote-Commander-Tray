@@ -139,3 +139,20 @@
 - 正式新 EXE 已启动验证：保持运行并在 D 盘写日志，设置 `startAgentOnLaunch=false`，没有创建额外 Remote。仅终止本次测试启动且经确认没有子进程的托盘，不影响现有 npx Remote。
 - 已重新生成 WIP `0.2.0-preview.3` 自解压安装包，SHA256 `41BB9B2F0E5F07ECDB960F3B97AC22AE57332B7E453B67B292178849C2B5E59A`。本机正式迁移使用此包的验证 staging 版本。
 - **M6 仍未通过完整阶段门禁**：现有验证使用管理员账户；尚无真实非管理员账户登录下的独立安装/卸载验收，且托盘管理的 Remote 模式 MCP 实际调用未在安全隔离会话测试。不能把现有 stdio MCP 或当前 npx Remote 通信当作托盘托管测试。M7 尚未开始。
+
+## 2026-10-14 — 真实标准用户与托盘托管 Remote：门禁准备（未验收）
+
+- 已创建 `tools/Test-M6StandardAccount.ps1`，仅供交互登录的 Windows **真实标准用户**执行。默认只读预检，`-RunAcceptance` 会验证应用文件 SHA256、私有 SID 目录所有者和 ACL、真实 HKCU Run/卸载项/快捷方式、升级/回滚及保留数据卸载，并比较 Node 进程 PID。
+- 脚本必须先验证自己不属于 Administrators、HKCU 用户配置文件已加载，且当前 SID 下没有旧设置或安装注册，否则拒绝运行并保留数据。
+- 管理员账户执行脚本的负向安全测试返回 `NOT_STANDARD_USER`，符合预期，**并不代表标准用户门禁 PASS**。
+- 当前机器 C 盘可用空间约 0.28 GB，已有标准用户沙箱账户配置文件未加载。为避免创建系统残留账户、写满 C 盘或以后台 S4U 任务代替正常用户登录，本次没有新建/重置任何账户，也未执行其他用户的真实安装。
+- 本机只有一个在线的 Desktop Commander Remote 设备，当前连接依赖外部 npx Remote。禁止让托盘启动并接管同一 Remote；托盘托管真实 Remote MCP 工具调用须独立 VM/设备。
+- **剩余这两项仍未 PASS**。详见 `docs/M6-remaining-gates.md`；M6 仍进行中，M7 未开始。
+
+## 2026-10-14 — 最后两项门禁准备回归结果
+
+- `Test-M6StandardAccount.ps1` PowerShell 解析检查 PASS；在当前管理员账户下执行预检正确拒绝（`NOT_STANDARD_USER`），没有触碰其 HKCU 或 D: 目录；这仅是安全负向测试，并非标准用户安装通过。
+- 修正 `Audit-M6InstallPermissions.ps1` 成功时明确返回 `exit 0`，防止前序负向脚本退出码污染审计结论。真实 D:\Apps ACL 审计返回 0 且 `M6_INSTALL_ACL_AUDIT=PASS`。
+- 安装生命周期回归 PASS，覆盖 D: 目录、备份/回滚/卸载、设置保留及 HKCU 不变。
+- .NET Core 177/177 + Windows 25/25，共 202/202 项 PASS；Windows 原生集成 10/10 PASS。日志保存在本地 ignored `verification/m6-standard-prep-*.log`。
+- 本次没有新建用户、修改已有标准用户配置文件、创建计划任务或触碰当前 npx Remote。真正标准用户的交互式验收及另一独立设备的托盘 Remote MCP 验收仍然未运行，M6 继续保持 WIP。

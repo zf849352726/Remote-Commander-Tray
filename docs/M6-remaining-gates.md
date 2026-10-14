@@ -1,0 +1,44 @@
+# M6 最后两项实机验收（尚未完成）
+
+**状态：M6 进行中；不可进入 M7。**
+
+## 1. 真正的 Windows 标准账户安装/卸载
+
+准备 `tools/Test-M6StandardAccount.ps1`。该脚本不新建账户、不重置密码、不尝试管理员提权，不会启动 Desktop Commander Remote。
+
+**必须在标准用户自己正常登录的 Windows 桌面会话中运行**，不能由管理员 PowerShell、S4U 计划任务或不完整加载 HKCU 的模拟令牌替代。脚本检查当前账户不属于 Administrators、HKCU 与该用户的 SID/用户配置文件匹配，并确认不存在旧版托盘注册和安装文件。发现任何预存内容即拒绝测试，避免覆盖真正的用户设置。
+
+先执行只读预检：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemote\tools\Test-M6StandardAccount.ps1"
+```
+
+出现 `M6_STANDARD_USER_PREFLIGHT=PASS` 才能在**同一账户、同一交互式会话**中运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemote\tools\Test-M6StandardAccount.ps1" -RunAcceptance
+```
+
+验收 PASS 要求实际在该账户下安装 EXE 到 `D:\Apps\RemoteCommanderTray\<该账户SID>`，对比 SHA256、账户文件夹所有者与 DACL、该账户 HKCU Run、卸载注册及两枚快捷方式，完成升级备份/回滚、卸载并保留设置，且 Node 进程 PID 集合未变化。只有输出 `M6_STANDARD_USER_ACCEPTANCE=PASS` 才能记为通过。
+
+若测试失败，脚本尽力卸载测试程序，但不擅自删除用户数据；应按输出检查测试账户的 D 盘 SID 路径。
+
+**2026-10-14 环境约束：**仅一台 Remote 设备在线；当前连接是管理员账户。已存在的标准用户沙箱账户的配置文件没有加载，强行通过后台任务使用它们不能算交互式标准用户验收。C 盘仅余约 0.28 GB，不适宜自动创建新测试账户/配置文件。对管理员账户执行脚本的预检已正确拒绝，`NOT_STANDARD_USER`（这只是负向保护测试，不是标准用户验收通过）。
+
+## 2. 托盘真正托管的 Remote MCP 调用
+
+当前唯一在线的 Desktop Commander 设备就是 ChatGPT 访问这台 Windows 的通信通道，运行中的 `npx remote` 进程不能停止或接管。当前项目也有外部 Remote 检测保护，在同一设备上强制启动托盘管理的另一个 Remote 会有冲突或断连风险。
+
+**安全验收前置条件：**第二个独立 Windows 用户会话或测试 VM、独立运行的 Remote 认证和设备注册、已安装固定全局包 `@wonderwhy-er/desktop-commander@0.3.0`、此测试会话无外部 Remote 进程。不得复制当前 Remote 的认证令牌或覆盖当前注册信息。
+
+安全测试步骤：
+
+1. 在独立环境的托盘设置中打开 `StartAgentOnLaunch`，启动托盘并观察托盘托管 Node 进程；确认不是 `npx @latest` 或手动启动的外部 Remote。
+2. 从该测试环境所连接的 MCP 客户端执行至少一个真实工具调用（如 `list_directory` 指向隔离测试文件夹），记录工具结果与进程 PID。
+3. 通过托盘 `Stop agent`，验证只停止托盘拥有的子进程且没有清理官方认证。
+4. 验证日志、故障反馈、再次启动及退出后清理；确认当前生产设备仍在线、PID 不变。
+
+必须有测试环境独立进程、实际 MCP 工具调用和托盘关闭证据，才能标记此项 PASS。已完成的 stdio MCP 和当前 npx Remote ping 不能代替此门禁。
+
+**M6 不得标记 PASS，M7 不得开始，直到上述两项都有实测证据。**

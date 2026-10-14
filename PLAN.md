@@ -359,3 +359,10 @@ Git：docs: finalize release and acceptance
 - 正式迁移从 `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe` 到 `D:\Apps\RemoteCommanderTray\<SID>\RemoteCommanderTray.exe` 已执行，EXE 哈希验证、HKCU Run/桌面/开始菜单/卸载登记核验通过；旧 EXE 保留。
 - 新 SID EXE 已运行验收，不会自动启动 Remote，现有 Remote 进程未更改。迁移证据保存在 `verification/m6-migration-*.log` 和本地 ignored 备份目录。
 - 当前 M6 尚缺**真实非管理员用户**安装/卸载和**托盘托管 Remote** 的实际 MCP 测试；仍为 WIP，不进入 M7。
+
+### 2026-10-14 — M6 标准账户与独立 Remote 验收准备（门禁尚未通过）
+
+- 新增 `tools/Test-M6StandardAccount.ps1`：真正交互式 Windows 标准用户的只读预检、按当前 SID 实际安装/升级/回滚/卸载、HKCU Run/快捷方式/权限/EXE SHA256 的独立验收；不创建用户、不改变密码、不自动启动 Remote。默认只读；必须显式 `-RunAcceptance` 才执行安装。
+- 当前管理员账户下已验证脚本能拒绝错误环境（`NOT_STANDARD_USER`），但**没有真实标准用户会话执行的 PASS 结果**。已存在的标准用户沙箱账户配置文件未加载；C 盘约余 0.28 GB，不能安全新建真实用户测试环境。
+- 托盘托管 Remote 需要独立 VM/设备与单独的 Remote 登录。当前在线设备只有一台，ChatGPT 连接依赖现有 npx Remote，禁止同一会话竞争、停止或重注册它；独立 stdio MCP 验证不得冒充托盘托管 Remote 验收。
+- 完整步骤与明确 PASS 标准记录在 `docs/M6-remaining-gates.md`。**M6 仍为进行中，M7 不开始；不提交阶段 PASS**。

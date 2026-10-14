@@ -53,3 +53,4 @@ if($violations -gt 0){
     exit 2
 }
 Write-Output 'M6_INSTALL_ACL_AUDIT=PASS'
+exit 0
