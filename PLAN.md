@@ -366,3 +366,10 @@ Git：docs: finalize release and acceptance
 - 当前管理员账户下已验证脚本能拒绝错误环境（`NOT_STANDARD_USER`），但**没有真实标准用户会话执行的 PASS 结果**。已存在的标准用户沙箱账户配置文件未加载；C 盘约余 0.28 GB，不能安全新建真实用户测试环境。
 - 托盘托管 Remote 需要独立 VM/设备与单独的 Remote 登录。当前在线设备只有一台，ChatGPT 连接依赖现有 npx Remote，禁止同一会话竞争、停止或重注册它；独立 stdio MCP 验证不得冒充托盘托管 Remote 验收。
 - 完整步骤与明确 PASS 标准记录在 `docs/M6-remaining-gates.md`。**M6 仍为进行中，M7 不开始；不提交阶段 PASS**。
+
+### 2026-10-14 — M6 托盘托管 Remote MCP 实机验收：PASS（总 Gate 仍未通过）
+
+- 用户在 Windows 本机手动停止旧 `npx Remote` 并由 SID 目录下新托盘启动 `@wonderwhy-er/desktop-commander@0.3.0 remote`，然后通过该设备恢复当前 ChatGPT 会话。
+- 已核查托盘 PID 9764 → 托盘直接托管 Remote PID 31892 → MCP 子进程 PID 35756；日志 `Connected to Remote MCP`/`Device online`。真实远程 MCP 工具 `list_directory` 对 `verification/m6-runtime-probe` 返回预期文件，**托盘托管 Remote + MCP 工具调用门禁 = PASS**。
+- 尚未实测停止/再次启动同一远程连接的完整循环（当前会话依赖此 Remote，未主动断开）。
+- **M6 仍为进行中，M7 未开始**：真正非管理员 Windows 用户独立安装、升级、卸载门禁仍无实测 PASS 证据；详见 `docs/M6-installation-progress.md` 与 `docs/M6-remaining-gates.md`。

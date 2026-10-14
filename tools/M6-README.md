@@ -153,3 +153,18 @@ test environment** and its own official Remote login. The live npx remote
 agent on this machine must never be stopped, copied or registered over.
 Both outstanding gates and safe step-by-step evidence requirements are in
 `docs/M6-remaining-gates.md`.
+
+## Live tray-managed Remote MCP acceptance result — 2026-10-14
+
+The user manually switched their live Windows connection from an external
+npx Remote to the SID-scoped Tray's managed pinned Remote 0.3.0.
+Observed Windows ancestry: tray PID 9764 -> global pinned Remote node PID
+31892 -> MCP subprocess node PID 35756 (not npx). D: agent.log recorded
+Agent started, Connected to Remote MCP, and Device online. This very MCP
+channel successfully ran list_directory on verification/m6-runtime-probe.
+
+M6 tray-managed Remote **actual MCP invocation** gate is PASS. The controlled
+Stop agent / restart cycle is NOT tested, because doing so would interrupt
+the only connected ChatGPT session. Real interactive non-administrator
+installation and lifecycle acceptance remains pending; do not mark total
+M6 PASS or begin M7 without that evidence.

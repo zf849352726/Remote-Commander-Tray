@@ -42,3 +42,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\DesktopCommanderRemo
 必须有测试环境独立进程、实际 MCP 工具调用和托盘关闭证据，才能标记此项 PASS。已完成的 stdio MCP 和当前 npx Remote ping 不能代替此门禁。
 
 **M6 不得标记 PASS，M7 不得开始，直到上述两项都有实测证据。**
+
+## 2026-10-14 托盘托管远程工具门禁更新（覆盖本文件较早的“未连接”状态）
+
+用户已在 Windows 本机安全地手动从旧 npx Remote 切换为 `0.2.0-preview.3` Tray 管理的固定版 `@wonderwhy-er/desktop-commander@0.3.0 remote`，成功重新连接当前对话。实测托盘 PID 9764 → Remote PID 31892 → MCP PID 35756，日志 Connected / Online，并通过当前 Remote 的原生 MCP `list_directory` 成功返回项目 verification 文件夹内容。**托盘托管 MCP 真实工具调用门禁已 PASS**，无需再以“必须独立设备才能验证工具调用”作为阻塞理由。
+
+但是托盘 Stop agent → 启动 → 重新连接完整恢复循环尚未实测，因为当前聊天依赖该连接；不得冒充已验收。**真正非管理员 Windows 交互式账户的安装/更新/回滚/卸载仍待完成**，总 M6 Gate 未通过，M7 未开始。

@@ -156,3 +156,14 @@
 - 安装生命周期回归 PASS，覆盖 D: 目录、备份/回滚/卸载、设置保留及 HKCU 不变。
 - .NET Core 177/177 + Windows 25/25，共 202/202 项 PASS；Windows 原生集成 10/10 PASS。日志保存在本地 ignored `verification/m6-standard-prep-*.log`。
 - 本次没有新建用户、修改已有标准用户配置文件、创建计划任务或触碰当前 npx Remote。真正标准用户的交互式验收及另一独立设备的托盘 Remote MCP 验收仍然未运行，M6 继续保持 WIP。
+
+## 2026-10-14 — 用户手动切换后：托盘托管 Remote 实际 MCP 门禁通过
+
+- 用户确认可以直接操作 Windows 本机，并在旧 `npx Remote` 停止后手动启动已迁移到 SID 目录的 `RemoteCommanderTray.exe`，通过托盘选择 `Start agent`，然后报告已通过新托盘连接回 ChatGPT。
+- 连接恢复后独立核查 `mcp__Remote_Desktop_Commander__list_devices`，唯一设备 `Administrator` 为 `Online`、Remote 版本 `0.3.0`。本次 MCP ping 返回 `pong`。
+- Windows 进程树真实观测：`RemoteCommanderTray.exe` PID **9764**（D 盘当前 SID 安装版 `0.2.0-preview.3`）→ `node.exe` PID **31892**（其命令行指向 D 盘全局 `@wonderwhy-er/desktop-commander@0.3.0` 的 `remote` 入口，无 npx-cli）→ `node.exe` PID **35756**（MCP 子进程）。未发现正在运行的旧 npx Remote 进程。
+- D 盘日志 `D:\Apps\RemoteCommanderTrayData\<SID>\logs\agent.log` 真实记录：`Agent started (pid 31892)`、`Starting MCP Device`、`Connected to Remote MCP`、`Device online`。用户配置 `startAgentOnLaunch=false`，本轮为手动启动。
+- **经该新设备上的真实 MCP 工具通道执行 `list_directory`**，目标 `D:\DesktopCommanderRemote\verification\m6-runtime-probe`，工具实际返回 `bin`、`obj`、`Program.cs`、`m6-runtime-probe.csproj`。这证明 MCP 工具读取端到端通过，不是仅检查 Online 或单独启动 stdio 模拟。
+- 结论：**M6 托盘托管 Remote 连接+实际 MCP 工具调用 = PASS**。期间没有由助手停止/重启任何 Remote 进程。
+- 托盘 `Stop agent` → 恢复连接的实际循环尚未验收；在用户仅依赖该连接时，助手不主动停止它，也不能宣称此循环通过。
+- **M6 总 Gate 仍未 PASS**：尚未在真正非管理员 Windows 交互式会话中执行独立安装、升级、回滚、卸载验收。此前管理员负向防护测试不得代替该门禁。M7 未开始。
