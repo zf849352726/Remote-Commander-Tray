@@ -107,3 +107,34 @@ connection is stopped or taken over by these scripts.
 The build artifact currently uses version `0.2.0-preview.3`. Tests performed
 as an administrator or against mock directories are NOT evidence of
 non-administrator self-install on a separate Windows account.
+
+## Migrating a legacy shared installation to current SID (WIP)
+
+The historical shared EXE at `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe`
+can be migrated using the project-only command after closing the tray:
+
+```powershell
+.\tools\Migrate-M6Legacy.ps1               # Read-only preflight
+.\tools\Migrate-M6Legacy.ps1 -Apply        # Do actual migration
+```
+
+The script rejects unexpected Run values, unrelated shortcuts or uninstall
+registration, wrong package checksum, or an already installed SID target.
+It stages a verified private-SID EXE first, snapshots existing HKCU Run,
+uninstall values and both .lnk files, then switches the Windows integration.
+It leaves Windows StartupApproved, legacy EXE, user settings and the external
+Remote untouched. Backups are under `verification/m6-migration-backups`.
+
+If the transaction fails after the private EXE was staged, the old integration
+is restored. After inspecting the prepared version and owner, explicitly
+resume with `-Apply -ResumePrepared`; it refuses version mismatches.
+
+Isolated proof without production integration changes:
+
+```powershell
+.\tools\Test-M6LegacyMigration.ps1
+```
+
+Do not confuse this migration with proof that a standard Windows account
+can independently install, or with the separate tray-managed Remote
+MCP acceptance test. Both remain open M6 gates.

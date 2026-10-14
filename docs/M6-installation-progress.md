@@ -127,3 +127,15 @@
 - 旧版已安装 EXE 及当前用户的 Windows 启动注册仍保留在共享旧位置；**没有直接迁移**到新的 SID 目录，也没有自动运行第二个 Remote。
 - 遗留风险：父目录允许其他标准用户创建任意子文件夹，可能出现 SID 目录名被抢占的拒绝服务；安装器通过目录所有者检查拒绝使用预先抢占的 SID 目录，但尚未进行真实跨用户测试。
 - M6 **尚未完整通过**：真正标准用户账户自助安装（当前仅在管理员账户执行隔离测试）、遗留安装的受控迁移，以及托盘托管 Remote 模式真实 MCP 工具调用均待独立环境验收。
+
+## 2026-10-14 — 旧共享安装安全迁移至 SID 独立目录：已真实执行
+
+- 新增 `tools/Migrate-M6Legacy.ps1` 和 `tools/Test-M6LegacyMigration.ps1`；迁移前严格检查旧 EXE、HKCU Run 的**精确路径**、旧卸载登记、两个旧快捷方式、无正在运行的托盘进程、候选 EXE SHA256、固定 Remote 0.3.0。任何非预期注册值都会拒绝迁移。
+- 工具先创建当前 SID 的私有程序目录并校验 EXE，再备份 HKCU Run、卸载登记、两个快捷方式及 StartupApproved 只读状态，最后更新 HKCU Run、卸载登记和快捷方式。原共享 EXE 和现有数据不删除，StartupApproved 状态不修改，不启动或停止 Remote。
+- 隔离场景通过：dry-run 只读；正常迁移；模拟更新 HKCU Run 后故障并恢复原 Run、卸载登记及快捷方式；检查预安装 EXE 后通过 `-ResumePrepared` 继续；重复迁移被拒绝；测试对真实 HKCU Run 与 Remote PID 无影响。证据：`verification/m6-migration-resume-test.log`，`M6_MIGRATION_FIXTURE=PASS`。
+- 生产环境预检：`verification/m6-migration-preflight.log`，`M6_MIGRATION_PREFLIGHT=PASS`。正式执行：`verification/m6-migration-real-apply.log`，`M6_LEGACY_MIGRATION=PASS`。真正 SID 版安装路径为 `D:\Apps\RemoteCommanderTray\<当前 SID>\RemoteCommanderTray.exe`。
+- 当前 HKCU Run、开始菜单/桌面快捷方式、卸载登记已指向 SID 新版；两个 EXE 均在 D 盘：旧版 EXE SHA256 `EC2C0C6BF1ECAFBBC556A468C26E0197C0817A36B62D62A7B095EBB2985E68C2`，新版 EXE SHA256 `5289501ECEB5C0C4262B2B81DCEF1637D1CF8F9E404DFF162B9B6A317E7B0BB2`。安装后哈希复核及账户目录所有者检查已通过。
+- 生产回滚资料位于（本机、不纳入 Git）`verification/m6-migration-backups/migration-20261014T085128233Z`。工具发生中途错误会恢复入口，但**不会擅自删除已复制的新 SID 文件夹**；可在检查其签名/所有者后显式使用 `-ResumePrepared`。
+- 正式新 EXE 已启动验证：保持运行并在 D 盘写日志，设置 `startAgentOnLaunch=false`，没有创建额外 Remote。仅终止本次测试启动且经确认没有子进程的托盘，不影响现有 npx Remote。
+- 已重新生成 WIP `0.2.0-preview.3` 自解压安装包，SHA256 `41BB9B2F0E5F07ECDB960F3B97AC22AE57332B7E453B67B292178849C2B5E59A`。本机正式迁移使用此包的验证 staging 版本。
+- **M6 仍未通过完整阶段门禁**：现有验证使用管理员账户；尚无真实非管理员账户登录下的独立安装/卸载验收，且托盘管理的 Remote 模式 MCP 实际调用未在安全隔离会话测试。不能把现有 stdio MCP 或当前 npx Remote 通信当作托盘托管测试。M7 尚未开始。

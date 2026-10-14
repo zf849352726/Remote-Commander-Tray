@@ -352,3 +352,10 @@ Git：docs: finalize release and acceptance
 - 全量回归：Release 构建 0 warning / 0 error，Core 177/177、Windows 25/25、Windows 原生集成 10/10 通过。
 - 已构建候选 `0.2.0-preview.3` 自包含 win-x64 安装 EXE，并验证实际解包、MIT LICENSE、按 SID 的安装脚本和 EXE SHA256。安装包本地路径 `verification\m6-dist\RemoteCommanderTray-Setup-0.2.0-preview.3-win-x64.exe`，SHA256 `75029107A60E8D74F93583DCC4883AC933B016B833D23AC76D73943EDECD4886`。
 - **剩余门禁：独立非管理员 Windows 用户执行真正安装/卸载、旧共享版向 SID 版的受控迁移、托盘托管 Remote 模式实际 MCP 工具调用。** 管理员沙箱测试不能替代标准用户实测；当前外部 Remote 不切换。M6 继续进行中，M7 不启动。
+
+### 2026-10-14 — M6 当前账户共享安装到 SID 目录已迁移
+
+- 新增可回退的 `tools/Migrate-M6Legacy.ps1` 和故障注入测试 `tools/Test-M6LegacyMigration.ps1`；正常迁移、更新 Run 中途失败回滚、已安装文件校验后 `-ResumePrepared`、重复迁移拒绝均通过。
+- 正式迁移从 `D:\Apps\RemoteCommanderTray\RemoteCommanderTray.exe` 到 `D:\Apps\RemoteCommanderTray\<SID>\RemoteCommanderTray.exe` 已执行，EXE 哈希验证、HKCU Run/桌面/开始菜单/卸载登记核验通过；旧 EXE 保留。
+- 新 SID EXE 已运行验收，不会自动启动 Remote，现有 Remote 进程未更改。迁移证据保存在 `verification/m6-migration-*.log` 和本地 ignored 备份目录。
+- 当前 M6 尚缺**真实非管理员用户**安装/卸载和**托盘托管 Remote** 的实际 MCP 测试；仍为 WIP，不进入 M7。

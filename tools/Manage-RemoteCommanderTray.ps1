@@ -9,10 +9,12 @@ param(
     [string]$SourceDir,
     [switch]$TestMode,
     [switch]$RemoveUserData,
-    [switch]$KeepUserData
+    [switch]$KeepUserData,
+    [switch]$PrepareOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($PrepareOnly -and $Action -ne 'Install') { throw 'PrepareOnly is valid only for Install.' }
 if ($KeepUserData -and $RemoveUserData) {
     throw 'KeepUserData and RemoveUserData cannot both be specified.'
 }
@@ -273,7 +275,7 @@ switch ($Action) {
             if (Test-Path -LiteralPath $licensePath) {
                 Copy-Item -LiteralPath $licensePath -Destination (Join-Path $InstallDir 'LICENSE') -Force
             }
-            Integrate-Windows
+            if (!$PrepareOnly) { Integrate-Windows }
         } finally {
             if (Test-Path $newExe) { Remove-Item -LiteralPath $newExe -Force }
         }
